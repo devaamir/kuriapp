@@ -10,9 +10,10 @@ import {
 import { TextInput, Button, Switch, Chip, Card } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
+
 import { addGroup } from '../store';
 import { Group, Member } from '../types';
+import { Fonts } from '../utils/fonts';
 
 interface CreateKuriScreenProps {
   navigation: any;
@@ -105,7 +106,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Toggle */}
-          <Animatable.View animation="fadeInDown" duration={600}>
+          <View>
             <Card style={styles.toggleCard}>
               <View style={styles.toggleContainer}>
                 <Text style={styles.toggleLabel}>New Kuri</Text>
@@ -113,10 +114,10 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 <Text style={styles.toggleLabel}>Existing Kuri</Text>
               </View>
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Form */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={200}>
+          <View>
             <Card style={styles.formCard}>
               <Text style={styles.cardTitle}>Group Details</Text>
 
@@ -182,10 +183,10 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 placeholder="YYYY-MM-DD"
               />
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Members */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={400}>
+          <View>
             <Card style={styles.membersCard}>
               <Text style={styles.cardTitle}>Add Members</Text>
 
@@ -222,10 +223,10 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 Share Invite Link
               </Button>
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Agreement */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={600}>
+          <View>
             <Card style={styles.agreementCard}>
               <Text style={styles.cardTitle}>Agreement</Text>
 
@@ -241,10 +242,10 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 numberOfLines={6}
               />
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Submit Button */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={800}>
+          <View>
             <Button
               mode="contained"
               onPress={handleSubmit}
@@ -253,7 +254,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
             >
               Create Kuri
             </Button>
-          </Animatable.View>
+          </View>
         </ScrollView>
       </LinearGradient>
     </View>
@@ -282,10 +283,13 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
   },
   headerTitle: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
   },
   content: {
@@ -304,6 +308,7 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#1a1a1a',
   },
@@ -313,7 +318,9 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
     marginBottom: 20,
   },
@@ -323,6 +330,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#1a1a1a',
     marginBottom: 16,
@@ -346,6 +354,7 @@ const styles = StyleSheet.create({
   },
   durationText: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#666',
   },

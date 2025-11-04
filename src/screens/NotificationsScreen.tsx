@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { Chip } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
 import { RootState } from '../store';
 import { markNotificationAsRead, deleteNotification } from '../store';
 import { Card } from 'react-native-paper';
 import { Notification } from '../types';
+import { Fonts } from '../utils/fonts';
 
 interface NotificationsScreenProps {
   navigation: any;
@@ -128,13 +128,13 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
         {/* Notifications List */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {filteredNotifications.length === 0 ? (
-            <Animatable.View animation="fadeIn" style={styles.emptyContainer}>
+            <View>
               <Text style={styles.emptyIcon}>🔔</Text>
               <Text style={styles.emptyTitle}>No notifications</Text>
               <Text style={styles.emptySubtitle}>
                 {activeTab === 'unread' ? 'All caught up!' : 'You have no notifications yet'}
               </Text>
-            </Animatable.View>
+            </View>
           ) : (
             filteredNotifications.map((notification, index) => {
               const cardStyle = notification.isRead 
@@ -142,7 +142,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
                 : StyleSheet.flatten([styles.notificationCard, styles.unreadCard]);
               
               return (
-              <Animatable.View
+              <View
                 key={notification.id}
                 animation="fadeInUp"
                 delay={index * 100}
@@ -180,7 +180,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
                     </View>
                   </Card>
                 </TouchableOpacity>
-              </Animatable.View>
+              </View>
               );
             })
           )}
@@ -207,7 +207,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
+    fontFamily: Fonts.bold,
     fontWeight: '700',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
   },
   markAllButton: {
@@ -216,6 +218,7 @@ const styles = StyleSheet.create({
   },
   markAllText: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: '#2196F3',
     fontWeight: '500',
   },
@@ -239,6 +242,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#666',
   },
@@ -256,7 +260,9 @@ const styles = StyleSheet.create({
   unreadCount: {
     color: 'white',
     fontSize: 12,
+    fontFamily: Fonts.regular,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
   },
   content: {
     flex: 1,
@@ -274,12 +280,15 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#666',
     marginBottom: 12,
   },
   emptySubtitle: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: '#999',
     textAlign: 'center',
   },
@@ -305,6 +314,7 @@ const styles = StyleSheet.create({
   },
   notificationEmoji: {
     fontSize: 24,
+    fontFamily: Fonts.bold,
   },
   textContainer: {
     flex: 1,
@@ -316,7 +326,9 @@ const styles = StyleSheet.create({
   },
   notificationTitle: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
     flex: 1,
   },
@@ -329,12 +341,14 @@ const styles = StyleSheet.create({
   },
   notificationMessage: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: '#666',
     lineHeight: 22,
     marginBottom: 12,
   },
   notificationDate: {
     fontSize: 12,
+    fontFamily: Fonts.regular,
     color: '#999',
   },
   deleteButton: {
@@ -343,6 +357,7 @@ const styles = StyleSheet.create({
   },
   deleteIcon: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: '#999',
   },
 });

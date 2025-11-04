@@ -9,7 +9,15 @@ import { SpinWheelScreen } from '../screens/SpinWheelScreen';
 import { AnalyticsScreen } from '../screens/AnalyticsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { HomeIcon, ChartIcon, NotificationIcon, AvatarIcon } from '../components/TabIcons';
+import {
+  HomeIcon,
+  ChartIcon,
+  NotificationIcon,
+  AvatarIcon,
+} from '../components/TabIcons';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { BorderRadius, Spacing } from '../theme/spacing';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -31,53 +39,126 @@ const TabNavigator = () => (
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarIcon: ({ focused, color, size }) => {
+        const iconSize = 24;
+        const iconColor = focused ? Colors.primary : Colors.gray400;
+        
         if (route.name === 'Home') {
-          return <HomeIcon width={size} height={size} fill={color} opacity={focused ? 1 : 0.6} />;
+          return (
+            <HomeIcon
+              width={iconSize}
+              height={iconSize}
+              fill={iconColor}
+            />
+          );
         } else if (route.name === 'Analytics') {
-          return <ChartIcon width={size} height={size} fill={color} opacity={focused ? 1 : 0.6} />;
+          return (
+            <ChartIcon
+              width={iconSize}
+              height={iconSize}
+              fill={iconColor}
+            />
+          );
         } else if (route.name === 'Notifications') {
-          return <NotificationIcon width={size} height={size} fill={color} opacity={focused ? 1 : 0.6} />;
+          return (
+            <NotificationIcon
+              width={iconSize}
+              height={iconSize}
+              fill={iconColor}
+            />
+          );
         } else if (route.name === 'Profile') {
-          return <AvatarIcon width={size} height={size} fill={color} opacity={focused ? 1 : 0.6} />;
+          return (
+            <AvatarIcon
+              width={iconSize}
+              height={iconSize}
+              fill={iconColor}
+            />
+          );
         }
         return null;
       },
-      tabBarActiveTintColor: '#2196F3',
-      tabBarInactiveTintColor: '#666',
+      tabBarActiveTintColor: Colors.primary,
+      tabBarInactiveTintColor: Colors.gray400,
       tabBarStyle: {
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderTopWidth: 0,
-        elevation: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
+        backgroundColor: Colors.white,
+        borderTopWidth: 1,
+        borderTopColor: Colors.gray100,
+        elevation: 8,
+        shadowColor: Colors.shadow,
+        shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.1,
-        shadowRadius: 12,
-        paddingBottom: 12,
-        paddingTop: 12,
-        height: 80,
+        shadowRadius: 8,
+        paddingBottom: Spacing.md,
+        paddingTop: Spacing.sm,
+        height: 70,
+        borderTopLeftRadius: BorderRadius.lg,
+        borderTopRightRadius: BorderRadius.lg,
       },
       tabBarLabelStyle: {
-        fontSize: 12,
-        fontWeight: '500',
+        ...Typography.caption,
+        fontWeight: '600',
         marginTop: 4,
+      },
+      tabBarItemStyle: {
+        paddingVertical: Spacing.xs,
       },
     })}
   >
-    <Tab.Screen name="Home" component={HomeStack} />
-    <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-    <Tab.Screen name="Notifications" component={NotificationsScreen} />
-    <Tab.Screen name="Profile" component={ProfileStack} />
+    <Tab.Screen 
+      name="Home" 
+      component={HomeStack}
+      options={{ tabBarLabel: 'Home' }}
+    />
+    <Tab.Screen 
+      name="Analytics" 
+      component={AnalyticsScreen}
+      options={{ tabBarLabel: 'Analytics' }}
+    />
+    <Tab.Screen 
+      name="Notifications" 
+      component={NotificationsScreen}
+      options={{ tabBarLabel: 'Alerts' }}
+    />
+    <Tab.Screen 
+      name="Profile" 
+      component={ProfileStack}
+      options={{ tabBarLabel: 'Profile' }}
+    />
   </Tab.Navigator>
 );
 
 export const AppNavigator = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator 
+        screenOptions={{ 
+          headerShown: false,
+          cardStyle: { backgroundColor: Colors.gray50 },
+        }}
+      >
         <Stack.Screen name="Main" component={TabNavigator} />
-        <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} />
-        <Stack.Screen name="CreateKuri" component={CreateKuriScreen} />
-        <Stack.Screen name="SpinWheel" component={SpinWheelScreen} />
+        <Stack.Screen 
+          name="GroupDetails" 
+          component={GroupDetailsScreen}
+          options={{
+            presentation: 'card',
+            animationTypeForReplace: 'push',
+          }}
+        />
+        <Stack.Screen 
+          name="CreateKuri" 
+          component={CreateKuriScreen}
+          options={{
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen 
+          name="SpinWheel" 
+          component={SpinWheelScreen}
+          options={{
+            presentation: 'fullScreenModal',
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

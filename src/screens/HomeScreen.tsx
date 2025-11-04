@@ -5,16 +5,22 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import { Searchbar, FAB } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
+
 import { RootState } from '../store';
 import { setActiveFilter } from '../store';
 import { GroupCard } from '../components/GroupCard';
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
 import { PlusIcon, SearchIcon, CloseIcon } from '../components/TabIcons';
 import { Group } from '../types';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { Spacing, BorderRadius } from '../theme/spacing';
 
 interface HomeScreenProps {
   navigation: any;
@@ -28,10 +34,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const filterTabs = [
-    { key: 'all', label: 'All' },
-    { key: 'active', label: 'Active' },
-    { key: 'my_groups', label: 'My Groups' },
-    { key: 'completed', label: 'Completed' },
+    { key: 'all', label: 'All', count: groups.length },
+    {
+      key: 'active',
+      label: 'Active',
+      count: groups.filter(g => g.status === 'active').length,
+    },
+    {
+      key: 'my_groups',
+      label: 'My Groups',
+      count: groups.filter(g => g.members.some(m => m.id === user.id)).length,
+    },
+    {
+      key: 'completed',
+      label: 'Completed',
+      count: groups.filter(g => g.status === 'completed').length,
+    },
   ];
 
   const filteredGroups = groups.filter((group: Group) => {
@@ -48,55 +66,64 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     return matchesSearch && matchesFilter;
   });
 
-  const motivationalQuotes = [
-    'Save today, secure tomorrow! 💪',
-    'Every contribution counts! 🌟',
-    'Building wealth together! 🚀',
-  ];
-
-  const randomQuote =
-    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+  const activeGroups = groups.filter(
+    g => g.status === 'active' && g.members.some(m => m.id === user.id),
+  ).length;
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E3F2FD', '#F8F9FA']} style={styles.gradient}>
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.logo}>Kuripp</Text>
-            </View>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+      {/* Header with gradient */}
+      <LinearGradient colors={Colors.gradientPrimary} style={styles.header}>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.greeting}>Hello, {user.name}! 👋</Text>
+            <Text style={styles.subtitle}>
+              Let's grow your savings together
+            </Text>
           </View>
+        </View>
 
-          {/* Greeting */}
-          <Animatable.View
-            animation="fadeInDown"
-            duration={800}
-            style={styles.greeting}
-          >
-            <Text style={styles.greetingText}>Hi, {user.name}! 👋</Text>
-            <Text style={styles.motivationText}>{randomQuote}</Text>
-          </Animatable.View>
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>₹{10000}</Text>
+            <Text style={styles.statLabel}>Total Savings</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{activeGroups}</Text>
+            <Text style={styles.statLabel}>Active Groups</Text>
+          </Card>
+        </View>
+      </LinearGradient>
 
-          {/* Search */}
-          <Searchbar
-            placeholder="Search groups..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            inputStyle={styles.searchInput}
-            icon={() => <SearchIcon width={20} height={20} fill="#666" />}
-            clearIcon={searchQuery ? () => <CloseIcon width={20} height={20} fill="#666" /> : undefined}
-          />
+      {/* Content */}
+      <View style={styles.content}>
+        {/* Search */}
+        <Searchbar
+          placeholder="Search your groups..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchBar}
+          inputStyle={styles.searchInput}
+          icon={() => (
+            <SearchIcon width={20} height={20} fill={Colors.gray400} />
+          )}
+          clearIcon={
+            searchQuery
+              ? () => <CloseIcon width={20} height={20} fill={Colors.gray400} />
+              : undefined
+          }
+        />
 
-          {/* Filter Tabs */}
+        {/* Filter Tabs */}
+        <View style={styles.filterWrapper}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.filterContainer}
+            contentContainerStyle={styles.filterContent}
           >
             {filterTabs.map(tab => (
               <TouchableOpacity
@@ -104,6 +131,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 style={[
                   styles.filterTab,
                   activeFilter === tab.key && styles.activeFilterTab,
+                  { marginLeft: tab.key === 'all' ? Spacing.lg : 0 },
                 ]}
                 onPress={() => dispatch(setActiveFilter(tab.key as any))}
               >
@@ -115,13 +143,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 >
                   {tab.label}
                 </Text>
+                <View
+                  style={[
+                    styles.filterBadge,
+                    activeFilter === tab.key && styles.activeFilterBadge,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterBadgeText,
+                      activeFilter === tab.key && styles.activeFilterBadgeText,
+                    ]}
+                  >
+                    {tab.count}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
+        </View>
 
-          {/* Groups List */}
-          <View style={styles.groupsList}>
-            {filteredGroups.map(group => (
+        {/* Groups List */}
+        <ScrollView
+          style={styles.groupsList}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.groupsContent}
+        >
+          {filteredGroups.length > 0 ? (
+            filteredGroups.map(group => (
               <GroupCard
                 key={group.id}
                 group={group}
@@ -133,17 +182,33 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   navigation.navigate('SpinWheel', { groupId: group.id })
                 }
               />
-            ))}
-          </View>
+            ))
+          ) : (
+            <Card style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No groups found</Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery
+                  ? 'Try adjusting your search terms'
+                  : 'Create your first group to get started'}
+              </Text>
+              {!searchQuery && (
+                <Button
+                  title="Create Group"
+                  onPress={() => navigation.navigate('CreateKuri')}
+                  style={styles.emptyButton}
+                />
+              )}
+            </Card>
+          )}
         </ScrollView>
+      </View>
 
-        {/* FAB */}
-        <FAB
-          icon={() => <PlusIcon width={20} height={20} fill="white" />}
-          style={styles.fab}
-          onPress={() => navigation.navigate('CreateKuri')}
-        />
-      </LinearGradient>
+      {/* FAB */}
+      <FAB
+        icon={() => <PlusIcon width={24} height={24} fill={Colors.white} />}
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreateKuri')}
+      />
     </View>
   );
 };
@@ -151,101 +216,148 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
+    backgroundColor: Colors.gray50,
   },
   header: {
+    paddingTop: 60,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+  },
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  logo: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#2196F3',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  iconButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  iconEmoji: {
-    fontSize: 20,
+    marginBottom: Spacing.lg,
   },
   greeting: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    ...Typography.h3,
+    color: Colors.white,
+    marginBottom: Spacing.xs,
   },
-  greetingText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 8,
+  subtitle: {
+    ...Typography.body1,
+    color: Colors.primaryLight,
   },
-  motivationText: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 22,
+  statsContainer: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  statValue: {
+    ...Typography.h4,
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  content: {
+    flex: 1,
+    // paddingHorizontal: Spacing.lg,
+    marginTop: -Spacing.lg,
   },
   searchBar: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 16,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
     elevation: 2,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    marginBottom: Spacing.lg,
+    marginHorizontal: Spacing.lg,
   },
   searchInput: {
-    fontSize: 16,
+    ...Typography.body1,
   },
   filterContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
+  },
+  filterWrapper: {
+    // marginBottom: Spacing.lg,
+  },
+  filterContent: {
+    paddingRight: Spacing.lg,
   },
   filterTab: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginRight: 16,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    marginRight: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
   },
   activeFilterTab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   filterText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
+    ...Typography.label,
+    color: Colors.textSecondary,
+    marginRight: Spacing.xs,
   },
   activeFilterText: {
-    color: 'white',
+    color: Colors.white,
+  },
+  filterBadge: {
+    backgroundColor: Colors.gray100,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  activeFilterBadge: {
+    backgroundColor: Colors.primaryLight,
+  },
+  filterBadgeText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontWeight: '600',
+  },
+  activeFilterBadgeText: {
+    color: Colors.primary,
   },
   groupsList: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
+    flex: 1,
+    marginHorizontal: Spacing.lg,
+  },
+  groupsContent: {
+    paddingBottom: 100,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+    marginTop: Spacing.xl,
+  },
+  emptyTitle: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  emptySubtitle: {
+    ...Typography.body1,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  emptyButton: {
+    marginTop: Spacing.md,
   },
   fab: {
     position: 'absolute',
-    margin: 20,
+    margin: Spacing.lg,
     right: 0,
     bottom: 0,
-    backgroundColor: '#2196F3',
-  },
-  fabIcon: {
-    fontSize: 20,
-    color: 'white',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
   },
 });

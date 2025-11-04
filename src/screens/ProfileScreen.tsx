@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { TextInput, Button, Switch, FAB, Avatar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
 import { RootState } from '../store';
 import { updateUser } from '../store';
 import { Card } from 'react-native-paper';
+import { Fonts } from '../utils/fonts';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -31,18 +38,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => console.log('Logout'),
-        },
-      ]
-    );
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => console.log('Logout'),
+      },
+    ]);
   };
 
   return (
@@ -61,13 +64,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Profile Picture */}
-          <Animatable.View animation="fadeInDown" duration={600}>
+          <View>
             <Card style={styles.profileCard}>
               <View style={styles.profileHeader}>
                 <TouchableOpacity style={styles.avatarContainer}>
                   <Avatar.Text
                     size={80}
-                    label={user.name.split(' ').map(n => n[0]).join('')}
+                    label={user.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')}
                     style={styles.avatar}
                   />
                   {isEditing && (
@@ -80,17 +86,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 <Text style={styles.userEmail}>{user.email}</Text>
               </View>
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Personal Information */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={200}>
+          <View>
             <Card style={styles.infoCard}>
               <Text style={styles.cardTitle}>Personal Information</Text>
-              
+
               <TextInput
                 label="Full Name"
                 value={formData.name}
-                onChangeText={(text) => setFormData({...formData, name: text})}
+                onChangeText={text => setFormData({ ...formData, name: text })}
                 style={styles.input}
                 mode="outlined"
                 disabled={!isEditing}
@@ -99,7 +105,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               <TextInput
                 label="Email"
                 value={formData.email}
-                onChangeText={(text) => setFormData({...formData, email: text})}
+                onChangeText={text => setFormData({ ...formData, email: text })}
                 style={styles.input}
                 mode="outlined"
                 disabled={!isEditing}
@@ -109,7 +115,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               <TextInput
                 label="Phone"
                 value={formData.phone}
-                onChangeText={(text) => setFormData({...formData, phone: text})}
+                onChangeText={text => setFormData({ ...formData, phone: text })}
                 style={styles.input}
                 mode="outlined"
                 disabled={!isEditing}
@@ -119,46 +125,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               <TextInput
                 label="Age"
                 value={formData.age.toString()}
-                onChangeText={(text) => setFormData({...formData, age: parseInt(text) || 0})}
+                onChangeText={text =>
+                  setFormData({ ...formData, age: parseInt(text) || 0 })
+                }
                 style={styles.input}
                 mode="outlined"
                 disabled={!isEditing}
                 keyboardType="numeric"
               />
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Payment Information */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={400}>
+          <View>
             <Card style={styles.paymentCard}>
               <Text style={styles.cardTitle}>Payment Information</Text>
-              
+
               <TextInput
                 label="UPI ID"
                 value={formData.upiId}
-                onChangeText={(text) => setFormData({...formData, upiId: text})}
+                onChangeText={text => setFormData({ ...formData, upiId: text })}
                 style={styles.input}
                 mode="outlined"
                 disabled={!isEditing}
               />
 
-              <TouchableOpacity style={styles.qrUploadButton} disabled={!isEditing}>
+              <TouchableOpacity
+                style={styles.qrUploadButton}
+                disabled={!isEditing}
+              >
                 <Text style={styles.qrIcon}>📱</Text>
                 <Text style={styles.qrUploadText}>Upload QR Code</Text>
               </TouchableOpacity>
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Notification Settings */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={600}>
+          <View>
             <Card style={styles.settingsCard}>
               <Text style={styles.cardTitle}>Notification Settings</Text>
-              
+
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>Payment Reminders</Text>
                 <Switch
                   value={notifications.paymentReminders}
-                  onValueChange={(value) => setNotifications({...notifications, paymentReminders: value})}
+                  onValueChange={value =>
+                    setNotifications({
+                      ...notifications,
+                      paymentReminders: value,
+                    })
+                  }
                 />
               </View>
 
@@ -166,7 +182,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 <Text style={styles.settingLabel}>Draw Results</Text>
                 <Switch
                   value={notifications.drawResults}
-                  onValueChange={(value) => setNotifications({...notifications, drawResults: value})}
+                  onValueChange={value =>
+                    setNotifications({ ...notifications, drawResults: value })
+                  }
                 />
               </View>
 
@@ -174,7 +192,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 <Text style={styles.settingLabel}>Group Invites</Text>
                 <Switch
                   value={notifications.groupInvites}
-                  onValueChange={(value) => setNotifications({...notifications, groupInvites: value})}
+                  onValueChange={value =>
+                    setNotifications({ ...notifications, groupInvites: value })
+                  }
                 />
               </View>
 
@@ -182,14 +202,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 <Text style={styles.settingLabel}>Marketing Emails</Text>
                 <Switch
                   value={notifications.marketingEmails}
-                  onValueChange={(value) => setNotifications({...notifications, marketingEmails: value})}
+                  onValueChange={value =>
+                    setNotifications({
+                      ...notifications,
+                      marketingEmails: value,
+                    })
+                  }
                 />
               </View>
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Actions */}
-          <Animatable.View animation="fadeInUp" duration={600} delay={800}>
+          <View>
             {isEditing ? (
               <View style={styles.editActions}>
                 <Button
@@ -217,7 +242,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 Logout
               </Button>
             )}
-          </Animatable.View>
+          </View>
 
           <View style={styles.bottomSpacing} />
         </ScrollView>
@@ -250,7 +275,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: '#1a1a1a',
   },
   editButton: {
@@ -260,6 +285,7 @@ const styles = StyleSheet.create({
   },
   editIcon: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
   },
   content: {
     flex: 1,
@@ -292,15 +318,17 @@ const styles = StyleSheet.create({
   },
   cameraIcon: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
   },
   userName: {
     fontSize: 24,
-    fontWeight: '600',
+    fontFamily: Fonts.bold,
     color: '#1a1a1a',
     marginBottom: 8,
   },
   userEmail: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: '#666',
   },
   infoCard: {
@@ -309,7 +337,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
     marginBottom: 20,
   },
@@ -334,9 +362,11 @@ const styles = StyleSheet.create({
   },
   qrIcon: {
     fontSize: 24,
+    fontFamily: Fonts.bold,
   },
   qrUploadText: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: '#2196F3',
     fontWeight: '500',
   },
@@ -354,6 +384,7 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: '#1a1a1a',
   },
   editActions: {
@@ -380,6 +411,7 @@ const styles = StyleSheet.create({
   },
   fabIcon: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
     color: 'white',
   },
 });

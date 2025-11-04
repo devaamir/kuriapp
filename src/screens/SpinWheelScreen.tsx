@@ -6,15 +6,20 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  Alert,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
-import { Button, TextInput, IconButton } from 'react-native-paper';
+import { TextInput } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
 import { BackArrowIcon, SettingsIcon } from '../components/TabIcons';
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
 import { RootState } from '../store';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { Spacing, BorderRadius } from '../theme/spacing';
 
 const { width } = Dimensions.get('window');
 const WHEEL_SIZE = width * 0.8;
@@ -127,25 +132,48 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.gradient}>
-        <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+      {/* Header with gradient */}
+      <LinearGradient colors={Colors.gradientPrimary} style={styles.header}>
+        <View style={styles.headerContent}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <BackArrowIcon width={20} height={20} fill="white" />
+            <BackArrowIcon width={20} height={20} fill={Colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>🎰 Spin Wheel</Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>🎰 Spin Wheel</Text>
+            <Text style={styles.headerSubtitle}>{group.name}</Text>
+          </View>
           <TouchableOpacity
             onPress={() => setShowCustomizer(!showCustomizer)}
-            style={styles.customizeButton}
+            style={styles.settingsButton}
           >
-            <SettingsIcon width={20} height={20} fill="white" />
+            <SettingsIcon width={20} height={20} fill={Colors.white} />
           </TouchableOpacity>
         </View>
 
+        {/* Prize Card */}
+        <Card style={styles.prizeCard}>
+          <Text style={styles.prizeLabel}>Prize Amount</Text>
+          <Text style={styles.prizeAmount}>
+            ₹{(group.amount * group.members.length).toLocaleString()}
+          </Text>
+          <Text style={styles.participantsCount}>
+            {wheelNames.length} participants
+          </Text>
+        </Card>
+      </LinearGradient>
+
+      {/* Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Customizer */}
         {showCustomizer && (
-          <Animatable.View animation="slideInDown" style={styles.customizer}>
+          <Card style={styles.customizerCard}>
+            <Text style={styles.customizerTitle}>Customize Participants</Text>
+            
             <View style={styles.addNameContainer}>
               <TextInput
                 value={newName}
@@ -156,142 +184,128 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
                 dense
               />
               <Button
-                mode="contained"
+                title="Add"
                 onPress={addCustomName}
                 style={styles.addButton}
-              >
-                ➕
-              </Button>
-            </View>
-
-            <View style={styles.namesList}>
-              {customNames.map((name, index) => (
-                <View key={index} style={styles.nameItem}>
-                  <Text style={styles.nameText}>{name}</Text>
-                  <TouchableOpacity onPress={() => deleteCustomName(name)}>
-                    <Text style={styles.deleteIcon}>❌</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                size="small"
+              />
             </View>
 
             {customNames.length > 0 && (
-              <Button
-                mode="outlined"
-                onPress={resetToOriginal}
-                style={styles.resetButton}
-              >
-                Reset to Original
-              </Button>
+              <View style={styles.namesList}>
+                {customNames.map((name, index) => (
+                  <View key={index} style={styles.nameItem}>
+                    <Text style={styles.nameText}>{name}</Text>
+                    <TouchableOpacity onPress={() => deleteCustomName(name)}>
+                      <Text style={styles.deleteIcon}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <Button
+                  title="Reset to Original"
+                  onPress={resetToOriginal}
+                  variant="outline"
+                  style={styles.resetButton}
+                />
+              </View>
             )}
-          </Animatable.View>
+          </Card>
         )}
 
-        <Animatable.View animation="fadeInDown" style={styles.groupInfo}>
-          <Text style={styles.groupName}>{group.name}</Text>
-          <Text style={styles.prizeAmount}>
-            Prize: ₹{(group.amount * group.members.length).toLocaleString()}
-          </Text>
-        </Animatable.View>
+        {/* Wheel Container */}
+        <Card style={styles.wheelCard}>
+          <View style={styles.wheelContainer}>
+            <Animated.View
+              style={[
+                styles.wheelWrapper,
+                {
+                  transform: [
+                    {
+                      rotate: spinValue.interpolate({
+                        inputRange: [0, 360],
+                        outputRange: ['0deg', '360deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} style={styles.wheel}>
+                {wheelNames.map((name, index) => {
+                  const anglePerSection = 360 / wheelNames.length;
+                  const startAngle = index * anglePerSection;
+                  const endAngle = (index + 1) * anglePerSection;
+                  const midAngle = startAngle + anglePerSection / 2;
+                  const textPos = getTextPosition(midAngle);
 
-        <View style={styles.wheelContainer}>
-          <Animated.View
-            style={[
-              styles.wheelWrapper,
-              {
-                transform: [
-                  {
-                    rotate: spinValue.interpolate({
-                      inputRange: [0, 360],
-                      outputRange: ['0deg', '360deg'],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} style={styles.wheel}>
-              {wheelNames.map((name, index) => {
-                const anglePerSection = 360 / wheelNames.length;
-                const startAngle = index * anglePerSection;
-                const endAngle = (index + 1) * anglePerSection;
-                const midAngle = startAngle + anglePerSection / 2;
-                const textPos = getTextPosition(midAngle);
+                  return (
+                    <React.Fragment key={index}>
+                      <Path
+                        d={createWheelPath(startAngle, endAngle)}
+                        fill={colors[index % colors.length]}
+                        stroke="#fff"
+                        strokeWidth="2"
+                      />
+                      <SvgText
+                        x={textPos.x}
+                        y={textPos.y}
+                        fontSize="14"
+                        fontWeight="600"
+                        fill="white"
+                        textAnchor="middle"
+                        alignmentBaseline="middle"
+                      >
+                        {name}
+                      </SvgText>
+                    </React.Fragment>
+                  );
+                })}
+              </Svg>
+            </Animated.View>
 
-                return (
-                  <React.Fragment key={index}>
-                    <Path
-                      d={createWheelPath(startAngle, endAngle)}
-                      fill={colors[index % colors.length]}
-                      stroke="#fff"
-                      strokeWidth="2"
-                    />
-                    <SvgText
-                      x={textPos.x}
-                      y={textPos.y}
-                      fontSize="14"
-                      fontWeight="600"
-                      fill="white"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                    >
-                      {name}
-                    </SvgText>
-                  </React.Fragment>
-                );
-              })}
-            </Svg>
-          </Animated.View>
-
-          <View style={styles.centerCircle} />
-          <View style={styles.pointer}>
-            <View style={styles.triangle} />
+            <View style={styles.centerCircle} />
+            <View style={styles.pointer}>
+              <View style={styles.triangle} />
+            </View>
           </View>
-        </View>
+        </Card>
 
+        {/* Winner Display */}
         {winner && (
-          <Animatable.View animation="bounceIn" style={styles.winnerContainer}>
+          <Card style={styles.winnerCard}>
             <Text style={styles.winnerEmoji}>🎉</Text>
-            <Text style={styles.winnerText}>Winner!</Text>
+            <Text style={styles.winnerText}>Congratulations!</Text>
             <Text style={styles.winnerName}>{winner}</Text>
-          </Animatable.View>
+            <Text style={styles.winnerSubtext}>You are the lucky winner!</Text>
+          </Card>
         )}
 
+        {/* Controls */}
         <View style={styles.controls}>
           {!winner ? (
             <Button
-              mode="contained"
+              title={isSpinning ? 'Spinning...' : 'Spin Now! 🎰'}
               onPress={spinWheel}
               disabled={isSpinning || wheelNames.length === 0}
               style={styles.spinButton}
-              contentStyle={styles.buttonContent}
-            >
-              {isSpinning ? 'Spinning...' : 'Spin Now! 🎰'}
-            </Button>
+            />
           ) : (
             <View style={styles.winnerActions}>
               <Button
-                mode="outlined"
+                title="Spin Again"
                 onPress={resetSpin}
+                variant="outline"
                 style={styles.actionButton}
-              >
-                Spin Again
-              </Button>
+              />
               <Button
-                mode="contained"
+                title="Confirm Winner"
                 onPress={() => navigation.goBack()}
                 style={styles.actionButton}
-              >
-                Confirm Winner
-              </Button>
+              />
             </View>
           )}
         </View>
-
-        <Text style={styles.eligibleCount}>
-          {wheelNames.length} names on wheel
-        </Text>
-      </LinearGradient>
+      </ScrollView>
     </View>
   );
 };
@@ -299,100 +313,118 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: Colors.gray50,
   },
   header: {
+    paddingTop: 60,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
+    marginBottom: Spacing.lg,
   },
   backButton: {
-    padding: 12,
-    marginRight: 16,
-    borderRadius: 12,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginRight: Spacing.md,
   },
-  backIcon: {
-    fontSize: 20,
+  headerTitleContainer: {
+    flex: 1,
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
+    ...Typography.h3,
+    color: Colors.white,
+    marginBottom: Spacing.xs,
   },
-  customizeButton: {
-    padding: 12,
-    borderRadius: 12,
+  headerSubtitle: {
+    ...Typography.body1,
+    color: Colors.primaryLight,
+  },
+  settingsButton: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  customizeIcon: {
-    fontSize: 20,
+  prizeCard: {
+    alignItems: 'center',
+    padding: Spacing.lg,
   },
-  customizer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    marginHorizontal: 24,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+  prizeLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  prizeAmount: {
+    ...Typography.h2,
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  participantsCount: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+  },
+  content: {
+    flex: 1,
+    marginTop: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+  },
+  customizerCard: {
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  customizerTitle: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.lg,
   },
   addNameContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
   nameInput: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: Colors.white,
   },
   addButton: {
     alignSelf: 'center',
   },
   namesList: {
-    maxHeight: 120,
+    marginTop: Spacing.md,
   },
   nameItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    marginBottom: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.gray50,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
   },
   nameText: {
-    fontSize: 16,
-    color: '#333',
+    ...Typography.body1,
+    color: Colors.textPrimary,
   },
   deleteIcon: {
-    fontSize: 16,
+    ...Typography.body1,
+    color: Colors.error,
+    fontWeight: '600',
   },
   resetButton: {
-    marginTop: 12,
+    marginTop: Spacing.md,
   },
-  groupInfo: {
+  wheelCard: {
+    padding: Spacing.lg,
     alignItems: 'center',
-    marginBottom: 40,
-  },
-  groupName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: 'white',
-    marginBottom: 8,
-  },
-  prizeAmount: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: Spacing.lg,
   },
   wheelContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
     position: 'relative',
   },
   wheelWrapper: {
@@ -404,16 +436,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'white',
+    backgroundColor: Colors.white,
     top: '50%',
     left: '50%',
     marginTop: -20,
     marginLeft: -20,
-    elevation: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    elevation: 8,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   pointer: {
     position: 'absolute',
@@ -431,53 +463,48 @@ const styles = StyleSheet.create({
     borderLeftWidth: 30,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
-    borderLeftColor: 'white',
-    elevation: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    borderLeftColor: Colors.white,
+    elevation: 8,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
-  winnerContainer: {
+  winnerCard: {
     alignItems: 'center',
-    marginBottom: 40,
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   winnerEmoji: {
     fontSize: 60,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   winnerText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-    marginBottom: 8,
+    ...Typography.h3,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
   },
   winnerName: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFD700',
+    ...Typography.h2,
+    color: Colors.primary,
+    marginBottom: Spacing.sm,
+  },
+  winnerSubtext: {
+    ...Typography.body1,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
   controls: {
-    paddingHorizontal: 24,
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
   spinButton: {
-    backgroundColor: '#FF6B6B',
-  },
-  buttonContent: {
-    paddingVertical: 12,
+    marginBottom: Spacing.md,
   },
   winnerActions: {
     flexDirection: 'row',
-    gap: 16,
+    gap: Spacing.md,
   },
   actionButton: {
     flex: 1,
-  },
-  eligibleCount: {
-    textAlign: 'center',
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    marginBottom: 40,
   },
 });

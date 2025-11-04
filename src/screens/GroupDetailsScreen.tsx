@@ -9,11 +9,12 @@ import {
 import { Button, FAB, Chip } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
+
 import { BackArrowIcon, NotificationIcon } from '../components/TabIcons';
 import { RootState } from '../store';
 import { Card } from 'react-native-paper';
 import { Member } from '../types';
+import { Fonts } from '../utils/fonts';
 
 interface GroupDetailsScreenProps {
   navigation: any;
@@ -131,9 +132,8 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
       </ScrollView>
 
       {filteredMembers.map((member, index) => (
-        <Animatable.View
+        <View
           key={member.id}
-          animation="fadeInUp"
           delay={index * 100}
         >
           <Card style={styles.memberCard}>
@@ -153,7 +153,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
               </View>
             </View>
           </Card>
-        </Animatable.View>
+        </View>
       ))}
     </View>
   );
@@ -291,11 +291,14 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
   },
   headerTitle: {
     flex: 1,
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
   },
   headerActions: {
@@ -309,6 +312,7 @@ const styles = StyleSheet.create({
   },
   iconEmoji: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
   },
   tabContainer: {
     marginBottom: 16,
@@ -325,6 +329,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 13,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#666',
   },
@@ -343,12 +348,15 @@ const styles = StyleSheet.create({
   },
   countdownTitle: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: '#666',
     marginBottom: 12,
   },
   countdownTime: {
     fontSize: 32,
+    fontFamily: Fonts.bold,
     fontWeight: '700',
+    fontFamily: Fonts.semiBold,
     color: '#2196F3',
     marginBottom: 24,
   },
@@ -361,7 +369,9 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
+    fontFamily: Fonts.semiBold,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
     marginBottom: 20,
   },
@@ -377,11 +387,14 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
     fontWeight: '700',
+    fontFamily: Fonts.semiBold,
     color: '#2196F3',
   },
   statLabel: {
     fontSize: 12,
+    fontFamily: Fonts.regular,
     color: '#666',
     marginTop: 8,
   },
@@ -411,19 +424,23 @@ const styles = StyleSheet.create({
   memberInitial: {
     color: 'white',
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     fontSize: 16,
+    fontFamily: Fonts.regular,
   },
   memberDetails: {
     flex: 1,
   },
   memberName: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#1a1a1a',
     marginBottom: 4,
   },
   memberPhone: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: '#666',
   },
   memberStatus: {
@@ -432,6 +449,7 @@ const styles = StyleSheet.create({
   },
   statusEmoji: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
   },
   agreementScroll: {
     maxHeight: 300,
@@ -439,6 +457,7 @@ const styles = StyleSheet.create({
   },
   agreementText: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     lineHeight: 22,
     color: '#333',
   },
@@ -455,11 +474,13 @@ const styles = StyleSheet.create({
   },
   chatPlaceholder: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: '#666',
     marginBottom: 12,
   },
   chatSubtext: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: '#999',
   },
   fab: {
@@ -471,6 +492,7 @@ const styles = StyleSheet.create({
   },
   fabIcon: {
     fontSize: 20,
+    fontFamily: Fonts.semiBold,
     color: 'white',
   },
   agreementCard: {

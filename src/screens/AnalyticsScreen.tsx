@@ -10,9 +10,9 @@ import {
 import { useSelector } from 'react-redux';
 import { LineChart, PieChart, ProgressChart } from 'react-native-chart-kit';
 import LinearGradient from 'react-native-linear-gradient';
-import * as Animatable from 'react-native-animatable';
 import { RootState } from '../store';
 import { Card } from 'react-native-paper';
+import { Fonts } from '../utils/fonts';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -148,7 +148,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
           {/* Dashboard Tiles */}
           <View style={styles.tilesContainer}>
             {dashboardTiles.map((tile, index) => (
-              <Animatable.View
+              <View
                 key={tile.title}
                 animation="fadeInUp"
                 delay={index * 100}
@@ -161,12 +161,12 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                   </Text>
                   <Text style={styles.tileTitle}>{tile.title}</Text>
                 </Card>
-              </Animatable.View>
+              </View>
             ))}
           </View>
 
           {/* Contribution Over Time Chart */}
-          <Animatable.View animation="fadeInUp" delay={400}>
+          <View>
             <Card style={styles.chartCard}>
               <Text style={styles.chartTitle}>Contribution Over Time</Text>
               <LineChart
@@ -178,10 +178,10 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 style={styles.chart}
               />
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Completion Rate */}
-          <Animatable.View animation="fadeInUp" delay={600}>
+          <View>
             <Card style={styles.chartCard}>
               <Text style={styles.chartTitle}>Completion Rate</Text>
               <View style={styles.progressContainer}>
@@ -205,10 +205,10 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 </View>
               </View>
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Paid vs Unpaid */}
-          <Animatable.View animation="fadeInUp" delay={800}>
+          <View>
             <Card style={styles.chartCard}>
               <Text style={styles.chartTitle}>Payment Status</Text>
               <PieChart
@@ -223,10 +223,10 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 absolute
               />
             </Card>
-          </Animatable.View>
+          </View>
 
           {/* Summary Stats */}
-          <Animatable.View animation="fadeInUp" delay={1000}>
+          <View>
             <Card style={styles.summaryCard}>
               <Text style={styles.chartTitle}>Summary</Text>
               <View style={styles.summaryRow}>
@@ -253,7 +253,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
                 </Text>
               </View>
             </Card>
-          </Animatable.View>
+          </View>
         </ScrollView>
       </LinearGradient>
     </View>
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: '#1a1a1a',
     marginBottom: 20,
   },
@@ -293,6 +293,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     fontWeight: '500',
     color: '#666',
   },
@@ -318,15 +319,17 @@ const styles = StyleSheet.create({
   },
   tileIcon: {
     fontSize: 32,
+    fontFamily: Fonts.bold,
     marginBottom: 12,
   },
   tileValue: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: Fonts.semiBold,
     marginBottom: 8,
   },
   tileTitle: {
     fontSize: 12,
+    fontFamily: Fonts.regular,
     color: '#666',
     textAlign: 'center',
   },
@@ -337,7 +340,7 @@ const styles = StyleSheet.create({
   },
   chartTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
     marginBottom: 20,
     alignSelf: 'flex-start',
@@ -358,11 +361,12 @@ const styles = StyleSheet.create({
   },
   progressValue: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
     color: '#4CAF50',
   },
   progressLabel: {
     fontSize: 12,
+    fontFamily: Fonts.regular,
     color: '#666',
   },
   summaryCard: {
@@ -379,11 +383,12 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: '#666',
   },
   summaryValue: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: Fonts.regular,
     color: '#1a1a1a',
   },
 });

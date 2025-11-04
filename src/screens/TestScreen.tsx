@@ -18,7 +18,9 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 24,
+    fontFamily: Fonts.bold,
     fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
   },
 });
