@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { View, ActivityIndicator } from 'react-native';
+// Mock getToken function for UI-only mode
+const getToken = async () => null; // Always return null for UI testing
 import { HomeScreen } from '../screens/HomeScreen';
 import { GroupDetailsScreen } from '../screens/GroupDetailsScreen';
 import { CreateKuriScreen } from '../screens/CreateKuriScreen';
@@ -9,6 +12,8 @@ import { SpinWheelScreen } from '../screens/SpinWheelScreen';
 import { AnalyticsScreen } from '../screens/AnalyticsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { LoginScreen } from '../screens/LoginScreen';
+import { SignupScreen } from '../screens/SignupScreen';
 import {
   HomeIcon,
   ChartIcon,
@@ -128,6 +133,29 @@ const TabNavigator = () => (
 );
 
 export const AppNavigator = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const token = await getToken();
+      setIsAuthenticated(!!token);
+    } catch (error) {
+      setIsAuthenticated(false);
+    }
+  };
+
+  if (isAuthenticated === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator 
@@ -135,7 +163,10 @@ export const AppNavigator = () => {
           headerShown: false,
           cardStyle: { backgroundColor: Colors.gray50 },
         }}
+        initialRouteName={isAuthenticated ? 'Main' : 'Login'}
       >
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="Main" component={TabNavigator} />
         <Stack.Screen 
           name="GroupDetails" 
@@ -156,7 +187,7 @@ export const AppNavigator = () => {
           name="SpinWheel" 
           component={SpinWheelScreen}
           options={{
-            presentation: 'fullScreenModal',
+            presentation: 'modal',
           }}
         />
       </Stack.Navigator>

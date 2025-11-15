@@ -32,11 +32,6 @@ export const Colors = {
   error: '#EF4444',
   info: '#3B82F6',
   
-  // Background gradients
-  gradientPrimary: ['#6366F1', '#8B5CF6'],
-  gradientSecondary: ['#10B981', '#059669'],
-  gradientBackground: ['#F8FAFC', '#F1F5F9'],
-  
   // Card colors
   cardBackground: '#FFFFFF',
   cardBorder: '#E5E7EB',

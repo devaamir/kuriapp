@@ -8,13 +8,14 @@ import {
 } from 'react-native';
 import { Button, FAB, Chip } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import LinearGradient from 'react-native-linear-gradient';
+
 
 import { BackArrowIcon, NotificationIcon } from '../components/TabIcons';
 import { RootState } from '../store';
 import { Card } from 'react-native-paper';
 import { Member } from '../types';
-import { Fonts } from '../utils/fonts';
+// Simple font definition for UI-only mode
+const Fonts = { regular: 'System', medium: 'System', bold: 'System', semiBold: 'System' };
 
 interface GroupDetailsScreenProps {
   navigation: any;
@@ -210,7 +211,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E3F2FD', '#F8F9FA']} style={styles.gradient}>
+      <View style={styles.gradient}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -264,7 +265,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
           style={styles.fab}
           onPress={() => console.log('Add member')}
         />
-      </LinearGradient>
+      </View>
     </View>
   );
 };
@@ -275,6 +276,7 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',

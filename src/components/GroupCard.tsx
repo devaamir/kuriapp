@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
+
 
 import { Card } from './Card';
 import { Button } from './Button';
@@ -35,32 +35,24 @@ export const GroupCard: React.FC<GroupCardProps> = ({
     }
   };
 
-  const getStatusGradient = (status: string) => {
-    switch (status) {
-      case 'active':
-        return Colors.gradientSecondary;
-      case 'completed':
-        return Colors.gradientPrimary;
-      default:
-        return [Colors.warning, Colors.accentLight];
-    }
-  };
-
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.container}>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={styles.container}
+    >
       <Card style={styles.card}>
         {/* Header with gradient accent */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={styles.groupName}>{group.name}</Text>
-            <LinearGradient
-              colors={getStatusGradient(group.status)}
-              style={styles.statusBadge}
+            <View
+              style={[styles.statusBadge, { backgroundColor: getStatusColor(group.status) }]}
             >
               <Text style={styles.statusText}>
                 {group.status.toUpperCase()}
               </Text>
-            </LinearGradient>
+            </View>
           </View>
         </View>
 
@@ -85,9 +77,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({
             <Text style={styles.progressPercentage}>{group.progress}%</Text>
           </View>
           <View style={styles.progressBar}>
-            <LinearGradient
-              colors={Colors.gradientPrimary}
-              style={[styles.progressFill, { width: `${group.progress}%` }]}
+            <View
+              style={[styles.progressFill, { width: `${group.progress}%`, backgroundColor: Colors.primary }]}
             />
           </View>
         </View>
@@ -108,7 +99,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
                 title="Pay Now"
                 onPress={onPayNow}
                 variant="primary"
-                size="sm"
+                size="small"
                 style={styles.actionButton}
               />
             )}
@@ -117,7 +108,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
                 title="Spin Now"
                 onPress={onSpinNow}
                 variant="outline"
-                size="sm"
+                size="small"
                 style={styles.actionButton}
               />
             )}

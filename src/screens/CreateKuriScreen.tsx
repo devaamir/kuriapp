@@ -9,11 +9,12 @@ import {
 } from 'react-native';
 import { TextInput, Button, Switch, Chip, Card } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
-import LinearGradient from 'react-native-linear-gradient';
+
 
 import { addGroup } from '../store';
 import { Group, Member } from '../types';
-import { Fonts } from '../utils/fonts';
+// Simple font definition for UI-only mode
+const Fonts = { regular: 'System', medium: 'System', bold: 'System', semiBold: 'System' };
 
 interface CreateKuriScreenProps {
   navigation: any;
@@ -92,7 +93,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E3F2FD', '#F8F9FA']} style={styles.gradient}>
+      <View style={styles.gradient}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -256,7 +257,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
             </Button>
           </View>
         </ScrollView>
-      </LinearGradient>
+      </View>
     </View>
   );
 };
@@ -267,6 +268,7 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',
@@ -289,7 +291,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
-    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
   },
   content: {
@@ -320,7 +321,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Fonts.semiBold,
     fontWeight: '600',
-    fontFamily: Fonts.semiBold,
     color: '#1a1a1a',
     marginBottom: 20,
   },

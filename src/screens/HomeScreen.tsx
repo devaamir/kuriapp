@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import { Searchbar, FAB } from 'react-native-paper';
+import { Searchbar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
-import LinearGradient from 'react-native-linear-gradient';
+
 
 import { RootState } from '../store';
 import { setActiveFilter } from '../store';
@@ -75,7 +75,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
 
       {/* Header with gradient */}
-      <LinearGradient colors={Colors.gradientPrimary} style={styles.header}>
+      <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.greeting}>Hello, {user.name}! 👋</Text>
@@ -96,7 +96,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Text style={styles.statLabel}>Active Groups</Text>
           </Card>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Content */}
       <View style={styles.content}>
@@ -196,6 +196,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   title="Create Group"
                   onPress={() => navigation.navigate('CreateKuri')}
                   style={styles.emptyButton}
+                  size="medium"
                 />
               )}
             </Card>
@@ -203,12 +204,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </ScrollView>
       </View>
 
-      {/* FAB */}
-      <FAB
-        icon={() => <PlusIcon width={24} height={24} fill={Colors.white} />}
+      {/* Floating Action Button */}
+      <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('CreateKuri')}
-      />
+      >
+        <PlusIcon width={24} height={24} fill={Colors.white} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -222,6 +224,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
   },
   headerContent: {
     flexDirection: 'row',
@@ -357,7 +360,16 @@ const styles = StyleSheet.create({
     margin: Spacing.lg,
     right: 0,
     bottom: 0,
+    width: 56,
+    height: 56,
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.full,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
 });

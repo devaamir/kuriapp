@@ -5,16 +5,26 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  StatusBar,
   Dimensions,
 } from 'react-native';
 import { useSelector } from 'react-redux';
-import { LineChart, PieChart, ProgressChart } from 'react-native-chart-kit';
-import LinearGradient from 'react-native-linear-gradient';
-import { RootState } from '../store';
-import { Card } from 'react-native-paper';
-import { Fonts } from '../utils/fonts';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 
-const screenWidth = Dimensions.get('window').width;
+import { RootState } from '../store';
+import { Card } from '../components/Card';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { Spacing, BorderRadius } from '../theme/spacing';
+
+// Import SVG icons
+import GroupIcon from '../assets/icons/group-icon.svg';
+import TrophyIcon from '../assets/icons/trophy-line.svg';
+import WarningIcon from '../assets/icons/warning-icon.svg';
+import GraphIcon from '../assets/icons/graph-icon.svg';
+import ChartIcon from '../assets/icons/chart-icon.svg';
+
+const { width } = Dimensions.get('window');
 
 interface AnalyticsScreenProps {
   navigation: any;
@@ -28,18 +38,18 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
 
   const chartConfig = {
     backgroundColor: 'transparent',
-    backgroundGradientFrom: 'rgba(255, 255, 255, 0.1)',
-    backgroundGradientTo: 'rgba(255, 255, 255, 0.1)',
+    backgroundGradientFrom: 'rgba(255, 255, 255, 0)',
+    backgroundGradientTo: 'rgba(255, 255, 255, 0)',
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(26, 26, 26, ${opacity})`,
+    color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
     style: {
-      borderRadius: 16,
+      borderRadius: BorderRadius.lg,
     },
     propsForDots: {
-      r: '6',
+      r: '4',
       strokeWidth: '2',
-      stroke: '#2196F3',
+      stroke: Colors.primary,
     },
   };
 
@@ -47,215 +57,154 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
     {
       name: 'Paid',
       population: analytics.paidVsUnpaid.paid,
-      color: '#4CAF50',
-      legendFontColor: '#1a1a1a',
-      legendFontSize: 14,
+      color: Colors.success,
+      legendFontColor: Colors.textPrimary,
+      legendFontSize: 12,
     },
     {
       name: 'Unpaid',
       population: analytics.paidVsUnpaid.unpaid,
-      color: '#FF5722',
-      legendFontColor: '#1a1a1a',
-      legendFontSize: 14,
+      color: Colors.error,
+      legendFontColor: Colors.textPrimary,
+      legendFontSize: 12,
     },
   ];
 
-  const progressData = {
-    data: [analytics.completionRate / 100],
-  };
-
   const lineData = {
-    labels: analytics.contributionOverTime.map(item => item.month),
+    labels: analytics.contributionOverTime.map(item => item.month.slice(0, 3)),
     datasets: [
       {
         data: analytics.contributionOverTime.map(item => item.amount),
-        color: (opacity = 1) => `rgba(33, 150, 243, ${opacity})`,
-        strokeWidth: 3,
+        color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+        strokeWidth: 2,
       },
     ],
   };
 
-  const dashboardTiles = [
-    {
-      title: 'Total Groups',
-      value: analytics.totalGroups,
-      icon: '👥',
-      color: '#2196F3',
-    },
-    {
-      title: 'Contributions',
-      value: `₹${analytics.totalContributions.toLocaleString()}`,
-      icon: '💰',
-      color: '#4CAF50',
-    },
-    {
-      title: 'Missed Payments',
-      value: analytics.missedPayments,
-      icon: '⚠️',
-      color: '#FF5722',
-    },
-    {
-      title: 'Total Wins',
-      value: analytics.totalWins,
-      icon: '🏆',
-      color: '#FFD700',
-    },
-  ];
-
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E3F2FD', '#F8F9FA']} style={styles.gradient}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Analytics</Text>
-          <View style={styles.timeFilters}>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                timeFilter === 'weekly' && styles.activeFilter,
-              ]}
-              onPress={() => setTimeFilter('weekly')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  timeFilter === 'weekly' && styles.activeFilterText,
-                ]}
-              >
-                Weekly
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                timeFilter === 'monthly' && styles.activeFilter,
-              ]}
-              onPress={() => setTimeFilter('monthly')}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  timeFilter === 'monthly' && styles.activeFilterText,
-                ]}
-              >
-                Monthly
-              </Text>
-            </TouchableOpacity>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+      {/* Header with gradient */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTitleContainer}>
+            <ChartIcon width={24} height={24} color={Colors.white} />
+            <Text style={styles.headerTitle}>Analytics</Text>
           </View>
+          <Text style={styles.headerSubtitle}>Track your kuri performance</Text>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Dashboard Tiles */}
-          <View style={styles.tilesContainer}>
-            {dashboardTiles.map((tile, index) => (
-              <View
-                key={tile.title}
-                animation="fadeInUp"
-                delay={index * 100}
-                style={styles.tileWrapper}
-              >
-                <Card style={styles.tile}>
-                  <Text style={styles.tileIcon}>{tile.icon}</Text>
-                  <Text style={[styles.tileValue, { color: tile.color }]}>
-                    {tile.value}
-                  </Text>
-                  <Text style={styles.tileTitle}>{tile.title}</Text>
-                </Card>
-              </View>
-            ))}
-          </View>
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>₹{analytics.totalContributions.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>Total Contributions</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{analytics.completionRate}%</Text>
+            <Text style={styles.statLabel}>Success Rate</Text>
+          </Card>
+        </View>
 
-          {/* Contribution Over Time Chart */}
-          <View>
-            <Card style={styles.chartCard}>
-              <Text style={styles.chartTitle}>Contribution Over Time</Text>
-              <LineChart
-                data={lineData}
-                width={screenWidth - 80}
-                height={220}
-                chartConfig={chartConfig}
-                bezier
-                style={styles.chart}
-              />
-            </Card>
-          </View>
+        {/* Time Filters */}
+        <View style={styles.filtersContainer}>
+          <TouchableOpacity
+            style={[styles.filterButton, timeFilter === 'weekly' && styles.activeFilter]}
+            onPress={() => setTimeFilter('weekly')}
+          >
+            <Text style={[styles.filterText, timeFilter === 'weekly' && styles.activeFilterText]}>
+              Weekly
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, timeFilter === 'monthly' && styles.activeFilter]}
+            onPress={() => setTimeFilter('monthly')}
+          >
+            <Text style={[styles.filterText, timeFilter === 'monthly' && styles.activeFilterText]}>
+              Monthly
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-          {/* Completion Rate */}
-          <View>
-            <Card style={styles.chartCard}>
-              <Text style={styles.chartTitle}>Completion Rate</Text>
-              <View style={styles.progressContainer}>
-                <ProgressChart
-                  data={progressData}
-                  width={screenWidth - 80}
-                  height={200}
-                  strokeWidth={16}
-                  radius={80}
-                  chartConfig={{
-                    ...chartConfig,
-                    color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
-                  }}
-                  hideLegend={true}
-                />
-                <View style={styles.progressOverlay}>
-                  <Text style={styles.progressValue}>
-                    {analytics.completionRate}%
-                  </Text>
-                  <Text style={styles.progressLabel}>Complete</Text>
-                </View>
-              </View>
-            </Card>
-          </View>
+      {/* Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Overview Cards */}
+        <View style={styles.overviewGrid}>
+          <Card style={styles.overviewCard}>
+            <GroupIcon width={24} height={24} color={Colors.primary} />
+            <Text style={styles.overviewValue}>{analytics.totalGroups}</Text>
+            <Text style={styles.overviewLabel}>Total Groups</Text>
+          </Card>
+          <Card style={styles.overviewCard}>
+            <TrophyIcon width={24} height={24} color={Colors.success} />
+            <Text style={styles.overviewValue}>{analytics.totalWins}</Text>
+            <Text style={styles.overviewLabel}>Total Wins</Text>
+          </Card>
+          <Card style={styles.overviewCard}>
+            <WarningIcon width={24} height={24} color={Colors.error} />
+            <Text style={styles.overviewValue}>{analytics.missedPayments}</Text>
+            <Text style={styles.overviewLabel}>Missed Payments</Text>
+          </Card>
+          <Card style={styles.overviewCard}>
+            <GraphIcon width={24} height={24} color={Colors.primary} />
+            <Text style={styles.overviewValue}>{analytics.totalGroups - 1}</Text>
+            <Text style={styles.overviewLabel}>Active Groups</Text>
+          </Card>
+        </View>
 
-          {/* Paid vs Unpaid */}
-          <View>
-            <Card style={styles.chartCard}>
-              <Text style={styles.chartTitle}>Payment Status</Text>
-              <PieChart
-                data={pieData}
-                width={screenWidth - 80}
-                height={220}
-                chartConfig={chartConfig}
-                accessor="population"
-                backgroundColor="transparent"
-                paddingLeft="15"
-                center={[10, 10]}
-                absolute
-              />
-            </Card>
-          </View>
+        {/* Contribution Chart */}
+        <Card style={styles.chartCard}>
+          <Text style={styles.chartTitle}>Contribution Trends</Text>
+          <LineChart
+            data={lineData}
+            width={width - 80}
+            height={200}
+            chartConfig={chartConfig}
+            bezier
+            style={styles.chart}
+          />
+        </Card>
 
-          {/* Summary Stats */}
-          <View>
-            <Card style={styles.summaryCard}>
-              <Text style={styles.chartTitle}>Summary</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>
-                  Average Monthly Contribution
-                </Text>
-                <Text style={styles.summaryValue}>
-                  ₹
-                  {Math.round(
-                    analytics.totalContributions / 3,
-                  ).toLocaleString()}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Success Rate</Text>
-                <Text style={styles.summaryValue}>
-                  {analytics.completionRate}%
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Active Groups</Text>
-                <Text style={styles.summaryValue}>
-                  {analytics.totalGroups - 1}
-                </Text>
-              </View>
-            </Card>
+        {/* Payment Status */}
+        <Card style={styles.chartCard}>
+          <Text style={styles.chartTitle}>Payment Status</Text>
+          <PieChart
+            data={pieData}
+            width={width - 80}
+            height={180}
+            chartConfig={chartConfig}
+            accessor="population"
+            backgroundColor="transparent"
+            paddingLeft="15"
+            absolute
+          />
+        </Card>
+
+        {/* Summary */}
+        <Card style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Monthly Summary</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Average Contribution</Text>
+            <Text style={styles.summaryValue}>
+              ₹{Math.round(analytics.totalContributions / 3).toLocaleString()}
+            </Text>
           </View>
-        </ScrollView>
-      </LinearGradient>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Completion Rate</Text>
+            <Text style={[styles.summaryValue, { color: Colors.success }]}>
+              {analytics.completionRate}%
+            </Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Payment Success</Text>
+            <Text style={[styles.summaryValue, { color: Colors.primary }]}>
+              {Math.round((analytics.paidVsUnpaid.paid / (analytics.paidVsUnpaid.paid + analytics.paidVsUnpaid.unpaid)) * 100)}%
+            </Text>
+          </View>
+        </Card>
+      </ScrollView>
     </View>
   );
 };
@@ -263,132 +212,136 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: Colors.gray50,
   },
   header: {
-    paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 24,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
+  },
+  headerContent: {
+    marginBottom: Spacing.lg,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   headerTitle: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: '#1a1a1a',
-    marginBottom: 20,
+    ...Typography.h2,
+    color: Colors.white,
   },
-  timeFilters: {
+  headerSubtitle: {
+    ...Typography.body1,
+    color: Colors.primaryLight,
+  },
+  statsContainer: {
     flexDirection: 'row',
-    gap: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  statValue: {
+    ...Typography.h3,
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: Spacing.md,
   },
   filterButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   activeFilter: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.white,
   },
   filterText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
+    ...Typography.body2,
+    color: Colors.primaryLight,
     fontWeight: '500',
-    color: '#666',
   },
   activeFilterText: {
-    color: 'white',
+    color: Colors.primary,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    marginTop: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
-  tilesContainer: {
+  overviewGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 20,
-    marginBottom: 24,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  tileWrapper: {
-    width: (screenWidth - 68) / 2,
-  },
-  tile: {
+  overviewCard: {
+    width: (width - Spacing.lg * 3) / 2,
     alignItems: 'center',
-    paddingVertical: 28,
+    padding: Spacing.lg,
   },
-  tileIcon: {
-    fontSize: 32,
-    fontFamily: Fonts.bold,
-    marginBottom: 12,
+  overviewValue: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.sm,
   },
-  tileValue: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    marginBottom: 8,
-  },
-  tileTitle: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: '#666',
+  overviewLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   chartCard: {
-    marginBottom: 24,
-    padding: 20,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
     alignItems: 'center',
   },
   chartTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: '#1a1a1a',
-    marginBottom: 20,
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.lg,
     alignSelf: 'flex-start',
   },
   chart: {
-    borderRadius: 16,
-  },
-  progressContainer: {
-    position: 'relative',
-    alignItems: 'center',
-  },
-  progressOverlay: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -30 }, { translateY: -20 }],
-    alignItems: 'center',
-  },
-  progressValue: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
-    color: '#4CAF50',
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: '#666',
+    borderRadius: BorderRadius.md,
   },
   summaryCard: {
-    marginBottom: 60,
-    padding: 20,
+    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  summaryTitle: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.lg,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomColor: Colors.gray200,
   },
   summaryLabel: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: '#666',
+    ...Typography.body1,
+    color: Colors.textSecondary,
   },
   summaryValue: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#1a1a1a',
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    fontWeight: '600',
   },
 });

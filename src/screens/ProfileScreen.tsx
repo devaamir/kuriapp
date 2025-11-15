@@ -5,15 +5,24 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  StatusBar,
   Alert,
+  TextInput,
+  Switch,
 } from 'react-native';
-import { TextInput, Button, Switch, FAB, Avatar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
-import LinearGradient from 'react-native-linear-gradient';
+
 import { RootState } from '../store';
 import { updateUser } from '../store';
-import { Card } from 'react-native-paper';
-import { Fonts } from '../utils/fonts';
+// Mock logout function for UI-only mode
+const logout = async () => {
+  console.log('Mock logout called');
+};
+import { Card } from '../components/Card';
+import { Button } from '../components/Button';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { Spacing, BorderRadius } from '../theme/spacing';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -21,7 +30,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { user } = useSelector((state: RootState) => state.app);
+  const { user, groups } = useSelector((state: RootState) => state.app);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(user);
   const [notifications, setNotifications] = useState({
@@ -30,6 +39,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     groupInvites: true,
     marketingEmails: false,
   });
+
+  const activeGroups = groups.filter(g => g.status === 'active' && g.members.some(m => m.id === user.id)).length;
+  const totalContributions = groups.reduce((sum, group) => sum + (group.amount * group.currentMonth), 0);
 
   const handleSave = () => {
     dispatch(updateUser(formData));
@@ -43,217 +55,225 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       {
         text: 'Logout',
         style: 'destructive',
-        onPress: () => console.log('Logout'),
+        onPress: async () => {
+          try {
+            await logout();
+            navigation.replace('Login');
+          } catch (error) {
+            Alert.alert('Error', 'Failed to logout');
+          }
+        },
       },
     ]);
   };
 
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E3F2FD', '#F8F9FA']} style={styles.gradient}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => setIsEditing(!isEditing)}
-          >
-            <Text style={styles.editIcon}>{isEditing ? '✕' : '✏️'}</Text>
-          </TouchableOpacity>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+      {/* Header with gradient */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>👤 Profile</Text>
+          <Text style={styles.headerSubtitle}>Manage your account settings</Text>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Profile Picture */}
-          <View>
-            <Card style={styles.profileCard}>
-              <View style={styles.profileHeader}>
-                <TouchableOpacity style={styles.avatarContainer}>
-                  <Avatar.Text
-                    size={80}
-                    label={user.name
-                      .split(' ')
-                      .map(n => n[0])
-                      .join('')}
-                    style={styles.avatar}
-                  />
-                  {isEditing && (
-                    <View style={styles.editAvatarOverlay}>
-                      <Text style={styles.cameraIcon}>📷</Text>
-                    </View>
-                  )}
+        {/* Profile Card */}
+        <Card style={styles.profileCard}>
+          <View style={styles.profileContent}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+              </View>
+              {isEditing && (
+                <TouchableOpacity style={styles.editAvatarButton}>
+                  <Text style={styles.editAvatarIcon}>📷</Text>
                 </TouchableOpacity>
-                <Text style={styles.userName}>{user.name}</Text>
-                <Text style={styles.userEmail}>{user.email}</Text>
-              </View>
-            </Card>
+              )}
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.userName}>{user.name}</Text>
+              <Text style={styles.userEmail}>{user.email}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setIsEditing(!isEditing)}
+            >
+              <Text style={styles.editIcon}>{isEditing ? '✕' : '✏️'}</Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{activeGroups}</Text>
+            <Text style={styles.statLabel}>Active Groups</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>₹{totalContributions.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>Total Paid</Text>
+          </Card>
+        </View>
+      </View>
+
+      {/* Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Personal Information */}
+        <Card style={styles.infoCard}>
+          <Text style={styles.cardTitle}>Personal Information</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Full Name</Text>
+            <TextInput
+              style={[styles.input, !isEditing && styles.disabledInput]}
+              value={formData.name}
+              onChangeText={text => setFormData({ ...formData, name: text })}
+              editable={isEditing}
+            />
           </View>
 
-          {/* Personal Information */}
-          <View>
-            <Card style={styles.infoCard}>
-              <Text style={styles.cardTitle}>Personal Information</Text>
-
-              <TextInput
-                label="Full Name"
-                value={formData.name}
-                onChangeText={text => setFormData({ ...formData, name: text })}
-                style={styles.input}
-                mode="outlined"
-                disabled={!isEditing}
-              />
-
-              <TextInput
-                label="Email"
-                value={formData.email}
-                onChangeText={text => setFormData({ ...formData, email: text })}
-                style={styles.input}
-                mode="outlined"
-                disabled={!isEditing}
-                keyboardType="email-address"
-              />
-
-              <TextInput
-                label="Phone"
-                value={formData.phone}
-                onChangeText={text => setFormData({ ...formData, phone: text })}
-                style={styles.input}
-                mode="outlined"
-                disabled={!isEditing}
-                keyboardType="phone-pad"
-              />
-
-              <TextInput
-                label="Age"
-                value={formData.age.toString()}
-                onChangeText={text =>
-                  setFormData({ ...formData, age: parseInt(text) || 0 })
-                }
-                style={styles.input}
-                mode="outlined"
-                disabled={!isEditing}
-                keyboardType="numeric"
-              />
-            </Card>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput
+              style={[styles.input, !isEditing && styles.disabledInput]}
+              value={formData.email}
+              onChangeText={text => setFormData({ ...formData, email: text })}
+              editable={isEditing}
+              keyboardType="email-address"
+            />
           </View>
 
-          {/* Payment Information */}
-          <View>
-            <Card style={styles.paymentCard}>
-              <Text style={styles.cardTitle}>Payment Information</Text>
-
-              <TextInput
-                label="UPI ID"
-                value={formData.upiId}
-                onChangeText={text => setFormData({ ...formData, upiId: text })}
-                style={styles.input}
-                mode="outlined"
-                disabled={!isEditing}
-              />
-
-              <TouchableOpacity
-                style={styles.qrUploadButton}
-                disabled={!isEditing}
-              >
-                <Text style={styles.qrIcon}>📱</Text>
-                <Text style={styles.qrUploadText}>Upload QR Code</Text>
-              </TouchableOpacity>
-            </Card>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Phone</Text>
+            <TextInput
+              style={[styles.input, !isEditing && styles.disabledInput]}
+              value={formData.phone}
+              onChangeText={text => setFormData({ ...formData, phone: text })}
+              editable={isEditing}
+              keyboardType="phone-pad"
+            />
           </View>
 
-          {/* Notification Settings */}
-          <View>
-            <Card style={styles.settingsCard}>
-              <Text style={styles.cardTitle}>Notification Settings</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Age</Text>
+            <TextInput
+              style={[styles.input, !isEditing && styles.disabledInput]}
+              value={formData.age.toString()}
+              onChangeText={text => setFormData({ ...formData, age: parseInt(text) || 0 })}
+              editable={isEditing}
+              keyboardType="numeric"
+            />
+          </View>
+        </Card>
 
-              <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Payment Reminders</Text>
-                <Switch
-                  value={notifications.paymentReminders}
-                  onValueChange={value =>
-                    setNotifications({
-                      ...notifications,
-                      paymentReminders: value,
-                    })
-                  }
-                />
-              </View>
-
-              <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Draw Results</Text>
-                <Switch
-                  value={notifications.drawResults}
-                  onValueChange={value =>
-                    setNotifications({ ...notifications, drawResults: value })
-                  }
-                />
-              </View>
-
-              <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Group Invites</Text>
-                <Switch
-                  value={notifications.groupInvites}
-                  onValueChange={value =>
-                    setNotifications({ ...notifications, groupInvites: value })
-                  }
-                />
-              </View>
-
-              <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>Marketing Emails</Text>
-                <Switch
-                  value={notifications.marketingEmails}
-                  onValueChange={value =>
-                    setNotifications({
-                      ...notifications,
-                      marketingEmails: value,
-                    })
-                  }
-                />
-              </View>
-            </Card>
+        {/* Payment Information */}
+        <Card style={styles.paymentCard}>
+          <Text style={styles.cardTitle}>Payment Information</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>UPI ID</Text>
+            <TextInput
+              style={[styles.input, !isEditing && styles.disabledInput]}
+              value={formData.upiId}
+              onChangeText={text => setFormData({ ...formData, upiId: text })}
+              editable={isEditing}
+            />
           </View>
 
-          {/* Actions */}
-          <View>
-            {isEditing ? (
-              <View style={styles.editActions}>
-                <Button
-                  mode="outlined"
-                  onPress={() => setIsEditing(false)}
-                  style={styles.actionButton}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  mode="contained"
-                  onPress={handleSave}
-                  style={styles.actionButton}
-                >
-                  Save Changes
-                </Button>
-              </View>
-            ) : (
-              <Button
-                mode="outlined"
-                onPress={handleLogout}
-                style={styles.logoutButton}
-                textColor="#FF5722"
-              >
-                Logout
-              </Button>
-            )}
+          <TouchableOpacity
+            style={[styles.qrUploadButton, !isEditing && styles.disabledButton]}
+            disabled={!isEditing}
+          >
+            <Text style={styles.qrIcon}>📱</Text>
+            <Text style={styles.qrUploadText}>Upload QR Code</Text>
+          </TouchableOpacity>
+        </Card>
+
+        {/* Notification Settings */}
+        <Card style={styles.settingsCard}>
+          <Text style={styles.cardTitle}>Notification Settings</Text>
+
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Payment Reminders</Text>
+            <Switch
+              value={notifications.paymentReminders}
+              onValueChange={value =>
+                setNotifications({ ...notifications, paymentReminders: value })
+              }
+              trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
+              thumbColor={notifications.paymentReminders ? Colors.primary : Colors.gray400}
+            />
           </View>
 
-          <View style={styles.bottomSpacing} />
-        </ScrollView>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Draw Results</Text>
+            <Switch
+              value={notifications.drawResults}
+              onValueChange={value =>
+                setNotifications({ ...notifications, drawResults: value })
+              }
+              trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
+              thumbColor={notifications.drawResults ? Colors.primary : Colors.gray400}
+            />
+          </View>
 
-        {/* FAB */}
-        <FAB
-          icon={() => <Text style={styles.fabIcon}>➕</Text>}
-          style={styles.fab}
-          onPress={() => navigation.navigate('CreateKuri')}
-        />
-      </LinearGradient>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Group Invites</Text>
+            <Switch
+              value={notifications.groupInvites}
+              onValueChange={value =>
+                setNotifications({ ...notifications, groupInvites: value })
+              }
+              trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
+              thumbColor={notifications.groupInvites ? Colors.primary : Colors.gray400}
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Marketing Emails</Text>
+            <Switch
+              value={notifications.marketingEmails}
+              onValueChange={value =>
+                setNotifications({ ...notifications, marketingEmails: value })
+              }
+              trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
+              thumbColor={notifications.marketingEmails ? Colors.primary : Colors.gray400}
+            />
+          </View>
+        </Card>
+
+        {/* Actions */}
+        {isEditing ? (
+          <View style={styles.editActions}>
+            <Button
+              title="Cancel"
+              onPress={() => setIsEditing(false)}
+              variant="outline"
+              style={styles.actionButton}
+              size="medium"
+            />
+            <Button
+              title="Save Changes"
+              onPress={handleSave}
+              style={styles.actionButton}
+              size="medium"
+            />
+          </View>
+        ) : (
+          <Button
+            title="Logout"
+            onPress={handleLogout}
+            variant="outline"
+            style={[styles.logoutButton, { borderColor: Colors.error }]}
+            size="medium"
+          />
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -261,157 +281,190 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: Colors.gray50,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 24,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
+  },
+  headerContent: {
+    marginBottom: Spacing.lg,
   },
   headerTitle: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: '#1a1a1a',
+    ...Typography.h2,
+    color: Colors.white,
+    marginBottom: Spacing.xs,
   },
-  editButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  editIcon: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
+  headerSubtitle: {
+    ...Typography.body1,
+    color: Colors.primaryLight,
   },
   profileCard: {
-    marginBottom: 24,
-    padding: 24,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  profileHeader: {
+  profileContent: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 20,
+    marginRight: Spacing.md,
   },
   avatar: {
-    backgroundColor: '#2196F3',
-  },
-  editAvatarOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#2196F3',
-    borderRadius: 16,
-    width: 32,
-    height: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraIcon: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
+  avatarText: {
+    ...Typography.h4,
+    color: Colors.white,
+    fontWeight: '600',
+  },
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editAvatarIcon: {
+    fontSize: 12,
+  },
+  profileInfo: {
+    flex: 1,
   },
   userName: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
-    color: '#1a1a1a',
-    marginBottom: 8,
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
   },
   userEmail: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+  },
+  editButton: {
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.gray100,
+  },
+  editIcon: {
     fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#666',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  statValue: {
+    ...Typography.h4,
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  content: {
+    flex: 1,
+    marginTop: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
   infoCard: {
-    marginBottom: 24,
-    padding: 20,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   cardTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: '#1a1a1a',
-    marginBottom: 20,
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  inputGroup: {
+    marginBottom: Spacing.lg,
+  },
+  inputLabel: {
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
   },
   input: {
-    marginBottom: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    borderColor: Colors.gray300,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    ...Typography.body1,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.white,
+  },
+  disabledInput: {
+    backgroundColor: Colors.gray50,
+    color: Colors.textSecondary,
   },
   paymentCard: {
-    marginBottom: 24,
-    padding: 20,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   qrUploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: Spacing.lg,
     borderWidth: 2,
-    borderColor: '#2196F3',
+    borderColor: Colors.primary,
     borderStyle: 'dashed',
-    borderRadius: 16,
-    gap: 12,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  disabledButton: {
+    borderColor: Colors.gray300,
   },
   qrIcon: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
+    fontSize: 20,
   },
   qrUploadText: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#2196F3',
+    ...Typography.body1,
+    color: Colors.primary,
     fontWeight: '500',
   },
   settingsCard: {
-    marginBottom: 24,
-    padding: 20,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    borderBottomColor: Colors.gray200,
   },
   settingLabel: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#1a1a1a',
+    ...Typography.body1,
+    color: Colors.textPrimary,
   },
   editActions: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 24,
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   actionButton: {
     flex: 1,
   },
   logoutButton: {
-    marginBottom: 24,
-    borderColor: '#FF5722',
-  },
-  bottomSpacing: {
-    height: 120,
-  },
-  fab: {
-    position: 'absolute',
-    margin: 20,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#2196F3',
-  },
-  fabIcon: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    color: 'white',
+    marginBottom: Spacing.xl,
   },
 });

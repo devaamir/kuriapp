@@ -9,13 +9,13 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
-import { TextInput } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import LinearGradient from 'react-native-linear-gradient';
+
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
 import { BackArrowIcon, SettingsIcon } from '../components/TabIcons';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { ParticipantsModal } from '../components/ParticipantsModal';
 import { RootState } from '../store';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -25,6 +25,11 @@ const { width } = Dimensions.get('window');
 const WHEEL_SIZE = width * 0.8;
 const RADIUS = WHEEL_SIZE / 2;
 const CENTER = RADIUS;
+
+interface Participant {
+  id: string;
+  name: string;
+}
 
 interface SpinWheelScreenProps {
   navigation: any;
@@ -41,16 +46,25 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
 
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
-  const [customNames, setCustomNames] = useState<string[]>([]);
-  const [newName, setNewName] = useState('');
-  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [customParticipants, setCustomParticipants] = useState<Participant[]>(
+    [],
+  );
+  const [showModal, setShowModal] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
 
   if (!group) return null;
 
   const eligibleMembers = group.members.filter(m => m.hasPaid && !m.hasWon);
+  const defaultParticipants: Participant[] = eligibleMembers.map(m => ({
+    id: m.id,
+    name: m.name,
+  }));
+
   const wheelNames =
-    customNames.length > 0 ? customNames : eligibleMembers.map(m => m.name);
+    customParticipants.length > 0
+      ? customParticipants.map(p => p.name)
+      : defaultParticipants.map(p => p.name);
+
   const colors = [
     '#FF6B6B',
     '#4ECDC4',
@@ -62,20 +76,8 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
     '#F7DC6F',
   ];
 
-  const addCustomName = () => {
-    if (newName.trim() && !customNames.includes(newName.trim())) {
-      setCustomNames([...customNames, newName.trim()]);
-      setNewName('');
-    }
-  };
-
-  const deleteCustomName = (nameToDelete: string) => {
-    setCustomNames(customNames.filter(name => name !== nameToDelete));
-  };
-
-  const resetToOriginal = () => {
-    setCustomNames([]);
-    setShowCustomizer(false);
+  const handleSaveParticipants = (participants: Participant[]) => {
+    setCustomParticipants(participants);
   };
 
   const createWheelPath = (startAngle: number, endAngle: number) => {
@@ -107,21 +109,28 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
     setIsSpinning(true);
     setWinner(null);
 
-    const randomRotation = Math.random() * 360 + 1440;
+    const minDuration = 3000; // 3 seconds
+    const maxDuration = 10000; // 10 seconds
+
+    const duration = Math.random() * (maxDuration - minDuration) + minDuration; // Random 3–10s
+
+    const rotationsPerSecond = 1.5; // adjust this value for speed feel
+    const randomRotation = (duration / 1000) * rotationsPerSecond * 360;
 
     Animated.timing(spinValue, {
       toValue: randomRotation,
-      duration: 3000,
+      duration: duration,
       useNativeDriver: true,
     }).start(() => {
-      // Calculate winner based on pointer position
       const normalizedRotation = randomRotation % 360;
-      const pointerAngle = (360 - normalizedRotation + 0) % 360; // Pointer is at right (90°)
+      const pointerAngle = (360 - normalizedRotation + 0) % 360;
       const anglePerSection = 360 / wheelNames.length;
       const winnerIndex = Math.floor(pointerAngle / anglePerSection);
 
-      setWinner(wheelNames[winnerIndex]);
-      setIsSpinning(false);
+      setTimeout(() => {
+        setWinner(wheelNames[winnerIndex]);
+        setIsSpinning(false);
+      }, 1000);
     });
   };
 
@@ -135,7 +144,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
 
       {/* Header with gradient */}
-      <LinearGradient colors={Colors.gradientPrimary} style={styles.header}>
+      <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -144,11 +153,11 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
             <BackArrowIcon width={20} height={20} fill={Colors.white} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>🎰 Spin Wheel</Text>
+            <Text style={styles.headerTitle}>Spin Wheel</Text>
             <Text style={styles.headerSubtitle}>{group.name}</Text>
           </View>
           <TouchableOpacity
-            onPress={() => setShowCustomizer(!showCustomizer)}
+            onPress={() => setShowModal(true)}
             style={styles.settingsButton}
           >
             <SettingsIcon width={20} height={20} fill={Colors.white} />
@@ -165,110 +174,77 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
             {wheelNames.length} participants
           </Text>
         </Card>
-      </LinearGradient>
+      </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Customizer */}
-        {showCustomizer && (
-          <Card style={styles.customizerCard}>
-            <Text style={styles.customizerTitle}>Customize Participants</Text>
-            
-            <View style={styles.addNameContainer}>
-              <TextInput
-                value={newName}
-                onChangeText={setNewName}
-                placeholder="Add name..."
-                style={styles.nameInput}
-                mode="outlined"
-                dense
-              />
-              <Button
-                title="Add"
-                onPress={addCustomName}
-                style={styles.addButton}
-                size="small"
-              />
-            </View>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!winner}
+      >
+        {/* Wheel Container */}
+        {!winner && (
+          <Card style={styles.wheelCard}>
+            <View style={styles.wheelContainer}>
+              <Animated.View
+                style={[
+                  styles.wheelWrapper,
+                  {
+                    transform: [
+                      {
+                        rotate: spinValue.interpolate({
+                          inputRange: [0, 360],
+                          outputRange: ['0deg', '360deg'],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <Svg
+                  width={WHEEL_SIZE}
+                  height={WHEEL_SIZE}
+                  style={styles.wheel}
+                >
+                  {wheelNames.map((name, index) => {
+                    const anglePerSection = 360 / wheelNames.length;
+                    const startAngle = index * anglePerSection;
+                    const endAngle = (index + 1) * anglePerSection;
+                    const midAngle = startAngle + anglePerSection / 2;
+                    const textPos = getTextPosition(midAngle);
 
-            {customNames.length > 0 && (
-              <View style={styles.namesList}>
-                {customNames.map((name, index) => (
-                  <View key={index} style={styles.nameItem}>
-                    <Text style={styles.nameText}>{name}</Text>
-                    <TouchableOpacity onPress={() => deleteCustomName(name)}>
-                      <Text style={styles.deleteIcon}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                <Button
-                  title="Reset to Original"
-                  onPress={resetToOriginal}
-                  variant="outline"
-                  style={styles.resetButton}
-                />
+                    return (
+                      <React.Fragment key={index}>
+                        <Path
+                          d={createWheelPath(startAngle, endAngle)}
+                          fill={colors[index % colors.length]}
+                          stroke="#fff"
+                          strokeWidth="2"
+                        />
+                        <SvgText
+                          x={textPos.x}
+                          y={textPos.y}
+                          fontSize="14"
+                          fontWeight="600"
+                          fill="white"
+                          textAnchor="middle"
+                          alignmentBaseline="middle"
+                        >
+                          {name}
+                        </SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+                </Svg>
+              </Animated.View>
+
+              <View style={styles.centerCircle} />
+              <View style={styles.pointer}>
+                <View style={styles.triangle} />
               </View>
-            )}
+            </View>
           </Card>
         )}
-
-        {/* Wheel Container */}
-        <Card style={styles.wheelCard}>
-          <View style={styles.wheelContainer}>
-            <Animated.View
-              style={[
-                styles.wheelWrapper,
-                {
-                  transform: [
-                    {
-                      rotate: spinValue.interpolate({
-                        inputRange: [0, 360],
-                        outputRange: ['0deg', '360deg'],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} style={styles.wheel}>
-                {wheelNames.map((name, index) => {
-                  const anglePerSection = 360 / wheelNames.length;
-                  const startAngle = index * anglePerSection;
-                  const endAngle = (index + 1) * anglePerSection;
-                  const midAngle = startAngle + anglePerSection / 2;
-                  const textPos = getTextPosition(midAngle);
-
-                  return (
-                    <React.Fragment key={index}>
-                      <Path
-                        d={createWheelPath(startAngle, endAngle)}
-                        fill={colors[index % colors.length]}
-                        stroke="#fff"
-                        strokeWidth="2"
-                      />
-                      <SvgText
-                        x={textPos.x}
-                        y={textPos.y}
-                        fontSize="14"
-                        fontWeight="600"
-                        fill="white"
-                        textAnchor="middle"
-                        alignmentBaseline="middle"
-                      >
-                        {name}
-                      </SvgText>
-                    </React.Fragment>
-                  );
-                })}
-              </Svg>
-            </Animated.View>
-
-            <View style={styles.centerCircle} />
-            <View style={styles.pointer}>
-              <View style={styles.triangle} />
-            </View>
-          </View>
-        </Card>
 
         {/* Winner Display */}
         {winner && (
@@ -284,10 +260,11 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
         <View style={styles.controls}>
           {!winner ? (
             <Button
-              title={isSpinning ? 'Spinning...' : 'Spin Now! 🎰'}
+              title={isSpinning ? 'Spinning...' : 'Spin Now!'}
               onPress={spinWheel}
               disabled={isSpinning || wheelNames.length === 0}
               style={styles.spinButton}
+              size="large"
             />
           ) : (
             <View style={styles.winnerActions}>
@@ -296,16 +273,30 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
                 onPress={resetSpin}
                 variant="outline"
                 style={styles.actionButton}
+                size="small"
               />
               <Button
                 title="Confirm Winner"
                 onPress={() => navigation.goBack()}
                 style={styles.actionButton}
+                size="small"
               />
             </View>
           )}
         </View>
       </ScrollView>
+
+      {/* Participants Modal */}
+      <ParticipantsModal
+        visible={showModal}
+        onClose={() => setShowModal(false)}
+        participants={
+          customParticipants.length > 0
+            ? customParticipants
+            : defaultParticipants
+        }
+        onSave={handleSaveParticipants}
+      />
     </View>
   );
 };
@@ -319,6 +310,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
   },
   headerContent: {
     flexDirection: 'row',
@@ -371,52 +363,6 @@ const styles = StyleSheet.create({
     marginTop: -Spacing.lg,
     paddingHorizontal: Spacing.lg,
   },
-  customizerCard: {
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-  },
-  customizerTitle: {
-    ...Typography.h4,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.lg,
-  },
-  addNameContainer: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  nameInput: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  addButton: {
-    alignSelf: 'center',
-  },
-  namesList: {
-    marginTop: Spacing.md,
-  },
-  nameItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.gray50,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.sm,
-  },
-  nameText: {
-    ...Typography.body1,
-    color: Colors.textPrimary,
-  },
-  deleteIcon: {
-    ...Typography.body1,
-    color: Colors.error,
-    fontWeight: '600',
-  },
-  resetButton: {
-    marginTop: Spacing.md,
-  },
   wheelCard: {
     padding: Spacing.lg,
     alignItems: 'center',
@@ -433,23 +379,14 @@ const styles = StyleSheet.create({
   wheel: {},
   centerCircle: {
     position: 'absolute',
-    width: 40,
-    height: 40,
+    width: 20,
+    height: 20,
     borderRadius: 20,
     backgroundColor: Colors.white,
-    top: '50%',
-    left: '50%',
-    marginTop: -20,
-    marginLeft: -20,
-    elevation: 8,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
   },
   pointer: {
     position: 'absolute',
-    right: 42,
+    right: 0,
     top: '50%',
     marginTop: -15,
     zIndex: 10,
@@ -463,7 +400,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 30,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
-    borderLeftColor: Colors.white,
+    borderLeftColor: Colors.primary,
     elevation: 8,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },

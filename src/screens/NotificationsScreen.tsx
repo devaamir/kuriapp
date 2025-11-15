@@ -1,27 +1,42 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Chip } from 'react-native-paper';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+  Alert,
+} from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import LinearGradient from 'react-native-linear-gradient';
+
 import { RootState } from '../store';
 import { markNotificationAsRead, deleteNotification } from '../store';
-import { Card } from 'react-native-paper';
+import { Card } from '../components/Card';
 import { Notification } from '../types';
-import { Fonts } from '../utils/fonts';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { Spacing, BorderRadius } from '../theme/spacing';
+
+// Import SVG icons
+import NotificationIcon from '../assets/icons/notification-icon.svg';
+import BankCardIcon from '../assets/icons/bank-card-icon.svg';
+import TrophyIcon from '../assets/icons/trophy-line.svg';
+import GroupIcon from '../assets/icons/group-icon.svg';
+import CloseIcon from '../assets/icons/close-icon.svg';
 
 interface NotificationsScreenProps {
   navigation: any;
 }
 
-export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation }) => {
+export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
+  navigation,
+}) => {
   const dispatch = useDispatch();
   const { notifications } = useSelector((state: RootState) => state.app);
   const [activeTab, setActiveTab] = useState('all');
 
-  const tabs = [
-    { key: 'all', label: 'All' },
-    { key: 'unread', label: 'Unread' },
-  ];
+  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const filteredNotifications = notifications.filter((notification: Notification) => {
     if (activeTab === 'unread') {
@@ -31,26 +46,21 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
   });
 
   const getNotificationIcon = (type: string) => {
+    const iconProps = { width: 20, height: 20, color: Colors.primary };
     switch (type) {
-      case 'payment_due': return '💳';
-      case 'payment_paid': return '✅';
-      case 'spin_reminder': return '🎰';
-      case 'draw_result': return '🏆';
-      case 'group_invite': return '👥';
-      case 'agreement_pending': return '📄';
-      default: return '🔔';
-    }
-  };
-
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case 'payment_due': return '#FF5722';
-      case 'payment_paid': return '#4CAF50';
-      case 'spin_reminder': return '#FF9800';
-      case 'draw_result': return '#FFD700';
-      case 'group_invite': return '#2196F3';
-      case 'agreement_pending': return '#9C27B0';
-      default: return '#666';
+      case 'payment_due': 
+      case 'payment_paid': 
+        return <BankCardIcon {...iconProps} />;
+      case 'spin_reminder': 
+        return <NotificationIcon {...iconProps} />;
+      case 'draw_result': 
+        return <TrophyIcon {...iconProps} />;
+      case 'group_invite': 
+        return <GroupIcon {...iconProps} />;
+      case 'agreement_pending': 
+        return <NotificationIcon {...iconProps} />;
+      default: 
+        return <NotificationIcon {...iconProps} />;
     }
   };
 
@@ -58,8 +68,6 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
     if (!notification.isRead) {
       dispatch(markNotificationAsRead(notification.id));
     }
-
-    // Navigate to related screen based on notification type
     if (notification.groupId) {
       navigation.navigate('GroupDetails', { groupId: notification.groupId });
     }
@@ -94,98 +102,102 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#E3F2FD', '#F8F9FA']} style={styles.gradient}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <TouchableOpacity style={styles.markAllButton}>
-            <Text style={styles.markAllText}>Mark all read</Text>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+      {/* Header with gradient */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>🔔 Notifications</Text>
+          <Text style={styles.headerSubtitle}>Stay updated with your kuris</Text>
+        </View>
+
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{notifications.length}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{unreadCount}</Text>
+            <Text style={styles.statLabel}>Unread</Text>
+          </Card>
+        </View>
+
+        {/* Filter Tabs */}
+        <View style={styles.filtersContainer}>
+          <TouchableOpacity
+            style={[styles.filterButton, activeTab === 'all' && styles.activeFilter]}
+            onPress={() => setActiveTab('all')}
+          >
+            <Text style={[styles.filterText, activeTab === 'all' && styles.activeFilterText]}>
+              All
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, activeTab === 'unread' && styles.activeFilter]}
+            onPress={() => setActiveTab('unread')}
+          >
+            <Text style={[styles.filterText, activeTab === 'unread' && styles.activeFilterText]}>
+              Unread
+            </Text>
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          {tabs.map((tab) => (
+      {/* Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {filteredNotifications.length === 0 ? (
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>🔔</Text>
+            <Text style={styles.emptyTitle}>No notifications</Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'unread' ? 'All caught up!' : 'You have no notifications yet'}
+            </Text>
+          </Card>
+        ) : (
+          filteredNotifications.map((notification) => (
             <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-              onPress={() => setActiveTab(tab.key)}
+              key={notification.id}
+              onPress={() => handleNotificationPress(notification)}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
-                {tab.label}
-              </Text>
-              {tab.key === 'unread' && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadCount}>
-                    {notifications.filter(n => !n.isRead).length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+              <Card style={[
+                styles.notificationCard,
+                !notification.isRead && styles.unreadCard
+              ]}>
+                <View style={styles.notificationContent}>
+                  <View style={styles.iconContainer}>
+                    <Text style={styles.notificationIcon}>
+                      {getNotificationIcon(notification.type)}
+                    </Text>
+                  </View>
 
-        {/* Notifications List */}
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {filteredNotifications.length === 0 ? (
-            <View>
-              <Text style={styles.emptyIcon}>🔔</Text>
-              <Text style={styles.emptyTitle}>No notifications</Text>
-              <Text style={styles.emptySubtitle}>
-                {activeTab === 'unread' ? 'All caught up!' : 'You have no notifications yet'}
-              </Text>
-            </View>
-          ) : (
-            filteredNotifications.map((notification, index) => {
-              const cardStyle = notification.isRead 
-                ? styles.notificationCard 
-                : StyleSheet.flatten([styles.notificationCard, styles.unreadCard]);
-              
-              return (
-              <View
-                key={notification.id}
-                animation="fadeInUp"
-                delay={index * 100}
-              >
-                <TouchableOpacity
-                  onPress={() => handleNotificationPress(notification)}
-                  activeOpacity={0.8}
-                >
-                  <Card style={cardStyle}>
-                    <View style={styles.notificationContent}>
-                      <View style={[
-                        styles.iconContainer,
-                        { backgroundColor: getNotificationColor(notification.type) + '20' }
-                      ]}>
-                        <Text style={styles.notificationEmoji}>
-                          {getNotificationIcon(notification.type)}
-                        </Text>
-                      </View>
-
-                      <View style={styles.textContainer}>
-                        <View style={styles.titleRow}>
-                          <Text style={styles.notificationTitle}>{notification.title}</Text>
-                          {!notification.isRead && <View style={styles.unreadDot} />}
-                        </View>
-                        <Text style={styles.notificationMessage}>{notification.message}</Text>
-                        <Text style={styles.notificationDate}>{formatDate(notification.date)}</Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => handleDeleteNotification(notification.id)}
-                      >
-                        <Text style={styles.deleteIcon}>✕</Text>
-                      </TouchableOpacity>
+                  <View style={styles.textContainer}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.notificationTitle}>{notification.title}</Text>
+                      {!notification.isRead && <View style={styles.unreadDot} />}
                     </View>
-                  </Card>
-                </TouchableOpacity>
-              </View>
-              );
-            })
-          )}
-        </ScrollView>
-      </LinearGradient>
+                    <Text style={styles.notificationMessage}>{notification.message}</Text>
+                    <Text style={styles.notificationDate}>{formatDate(notification.date)}</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteNotification(notification.id)}
+                  >
+                    <Text style={styles.deleteIcon}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -193,128 +205,130 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: Colors.gray50,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 24,
+    paddingBottom: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
+  },
+  headerContent: {
+    marginBottom: Spacing.lg,
   },
   headerTitle: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
-    fontFamily: Fonts.semiBold,
-    color: '#1a1a1a',
+    ...Typography.h2,
+    color: Colors.white,
+    marginBottom: Spacing.xs,
   },
-  markAllButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  headerSubtitle: {
+    ...Typography.body1,
+    color: Colors.primaryLight,
   },
-  markAllText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  tabContainer: {
+  statsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    marginBottom: 24,
-    gap: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
-  tab: {
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  statValue: {
+    ...Typography.h3,
+    color: Colors.primary,
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+  },
+  filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    gap: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    gap: Spacing.sm,
   },
-  activeTab: {
-    backgroundColor: '#2196F3',
+  activeFilter: {
+    backgroundColor: Colors.white,
   },
-  tabText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
+  filterText: {
+    ...Typography.body2,
+    color: Colors.primaryLight,
     fontWeight: '500',
-    color: '#666',
   },
-  activeTabText: {
-    color: 'white',
+  activeFilterText: {
+    color: Colors.primary,
   },
-  unreadBadge: {
-    backgroundColor: '#FF5722',
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
+  badge: {
+    backgroundColor: Colors.error,
+    borderRadius: BorderRadius.full,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  unreadCount: {
-    color: 'white',
-    fontSize: 12,
-    fontFamily: Fonts.regular,
+  badgeText: {
+    ...Typography.caption,
+    color: Colors.white,
     fontWeight: '600',
-    fontFamily: Fonts.semiBold,
+    fontSize: 10,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    marginTop: -Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
-  emptyContainer: {
-    flex: 1,
+  emptyCard: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 120,
+    padding: Spacing.xl * 2,
+    marginTop: Spacing.xl,
   },
   emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 48,
+    marginBottom: Spacing.lg,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-    fontFamily: Fonts.semiBold,
-    color: '#666',
-    marginBottom: 12,
+    ...Typography.h4,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: '#999',
+    ...Typography.body1,
+    color: Colors.textTertiary,
     textAlign: 'center',
   },
   notificationCard: {
-    marginBottom: 16,
-    padding: 16,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   unreadCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#2196F3',
+    borderLeftColor: Colors.primary,
   },
   notificationContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   iconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.gray100,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: Spacing.md,
   },
-  notificationEmoji: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
+  notificationIcon: {
+    fontSize: 20,
   },
   textContainer: {
     flex: 1,
@@ -322,42 +336,37 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: Spacing.xs,
   },
   notificationTitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
+    ...Typography.body1,
+    color: Colors.textPrimary,
     fontWeight: '600',
-    fontFamily: Fonts.semiBold,
-    color: '#1a1a1a',
     flex: 1,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2196F3',
-    marginLeft: 12,
+    backgroundColor: Colors.primary,
+    marginLeft: Spacing.sm,
   },
   notificationMessage: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: '#666',
-    lineHeight: 22,
-    marginBottom: 12,
+    ...Typography.body2,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+    lineHeight: 20,
   },
   notificationDate: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: '#999',
+    ...Typography.caption,
+    color: Colors.textTertiary,
   },
   deleteButton: {
-    padding: 12,
-    marginLeft: 12,
+    padding: Spacing.sm,
+    marginLeft: Spacing.sm,
   },
   deleteIcon: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#999',
+    ...Typography.body2,
+    color: Colors.textTertiary,
   },
 });

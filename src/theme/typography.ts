@@ -1,5 +1,12 @@
 import { TextStyle } from 'react-native';
-import { Fonts } from '../utils/fonts';
+
+// Simple font definitions for UI-only mode
+const Fonts = {
+  regular: 'System',
+  medium: 'System',
+  bold: 'System',
+  light: 'System',
+};
 
 export const Typography: Record<string, TextStyle> = {
   // Headings
