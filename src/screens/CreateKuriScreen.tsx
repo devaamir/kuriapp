@@ -12,6 +12,7 @@ import { useDispatch } from 'react-redux';
 
 import { addGroup, setLoading, setError } from '../store';
 import { kuriService } from '../services/kuriService';
+import { userService } from '../services/userService';
 import { Group, Member } from '../types';
 // Simple font definition for UI-only mode
 const Fonts = {
@@ -24,6 +25,13 @@ const Fonts = {
 interface CreateKuriScreenProps {
   navigation: any;
   route: any;
+}
+
+interface MemberItem {
+  name: string;
+  id?: string;
+  type: 'existing' | 'dummy';
+  uniqueCode?: string;
 }
 
 export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
@@ -46,18 +54,67 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
     agreement:
       'Monthly contribution as agreed. Draw will be conducted on the specified date each month. Winner receives the full collected amount.',
   });
-  const [members, setMembers] = useState<string[]>([]);
-  const [newMember, setNewMember] = useState('');
 
-  const addMember = () => {
-    if (newMember.trim() && !members.includes(newMember.trim())) {
-      setMembers([...members, newMember.trim()]);
-      setNewMember('');
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  const handleSearch = async (text: string) => {
+    setSearchQuery(text);
+    if (text.length > 2) {
+      setIsSearching(true);
+      setShowResults(true);
+      try {
+        const response = await userService.searchUsers(text);
+        if (response.length > 0) {
+          // Filter out users already added
+          const filtered = Array.isArray(response)
+            ? response.filter((u: any) => !members.some(m => m.id === u.id))
+            : [response].filter((u: any) => u && !members.some(m => m.id === u.id));
+
+          setSearchResults(filtered);
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    } else {
+      setSearchResults([]);
+      setShowResults(false);
     }
   };
 
-  const removeMember = (member: string) => {
-    setMembers(members.filter(m => m !== member));
+  const selectUser = (user: any) => {
+    const newMemberItem: MemberItem = {
+      name: user.name,
+      id: user.id,
+      type: 'existing',
+      uniqueCode: user.uniqueCode
+    };
+    setMembers([...members, newMemberItem]);
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowResults(false);
+  };
+
+  const addDummyMember = () => {
+    if (searchQuery.trim()) {
+      const newMemberItem: MemberItem = {
+        name: searchQuery.trim(),
+        type: 'dummy'
+      };
+      setMembers([...members, newMemberItem]);
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowResults(false);
+    }
+  };
+
+  const removeMember = (indexToRemove: number) => {
+    setMembers(members.filter((_, index) => index !== indexToRemove));
   };
 
   const handleRemoveMember = async (memberId: string) => {
@@ -117,25 +174,37 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
       } else {
         // Create new Kuri
         const response = await kuriService.createKuri(kuriPayload);
-        console.log(response, '===============');
-
 
         if (response.success) {
+          // Add members if any
+          if (members.length > 0) {
+            for (const member of members) {
+              try {
+                await kuriService.addMember(response.data.id, {
+                  type: member.type,
+                  userId: member.id,
+                  name: member.name
+                });
+              } catch (err) {
+                console.error(`Failed to add member ${member.name}`, err);
+              }
+            }
+          }
+
           // Create local group object for immediate UI update
           const newGroup: Group = {
             adminId: response.data.adminId,
-            createdBy: response.data.createdBy,
-            description: response.data.description,
-            duration: response.data.duration,
+            createdBy: response.data.adminId, // Assuming creator is admin
+            description: formData.description || formData.agreement,
+            duration: `${formData.duration} Months`,
             id: response.data.id,
-            memberIds: response.data.memberIds,
-            monthlyAmount: response.data.monthlyAmount,
+            memberIds: [response.data.adminId, ...members.map(m => m.id || '')].filter(Boolean),
+            monthlyAmount: formData.monthlyAmount,
             name: response.data.name,
-            startDate: response.data.startDate,
-            status: response.data.status,
-            type: response.data.type,
+            startDate: formData.startDate || new Date().toISOString().split('T')[0],
+            status: response.data.status as 'active' | 'pending' | 'completed',
+            type: 'monthly', // Default type
           };
-
           dispatch(addGroup(newGroup));
 
           Alert.alert(
@@ -325,17 +394,49 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
               {!isEditMode && (
                 <View>
                   <View style={styles.addMemberContainer}>
-                    <TextInput
-                      label="Member Name"
-                      value={newMember}
-                      onChangeText={setNewMember}
-                      style={styles.memberInput}
-                      mode="outlined"
-                    />
+                    <View style={styles.searchContainer}>
+                      <TextInput
+                        label="Search or Add Member"
+                        value={searchQuery}
+                        onChangeText={handleSearch}
+                        style={styles.memberInput}
+                        mode="outlined"
+                        placeholder="Type name to search..."
+                        right={
+                          isSearching ? <TextInput.Icon icon="loading" /> : null
+                        }
+                      />
+                      {showResults && searchResults.length > 0 && (
+                        <ScrollView style={styles.searchResults} keyboardShouldPersistTaps="handled">
+                          {searchResults.map((user) => (
+                            <TouchableOpacity
+                              key={user.id}
+                              style={styles.searchResultItem}
+                              onPress={() => selectUser(user)}
+                            >
+                              <Text style={styles.resultName}>{user.name}</Text>
+                              <Text style={styles.resultCode}>{user.uniqueCode}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                      {showResults && searchResults.length === 0 && searchQuery.length > 2 && (
+                        <View style={styles.searchResults}>
+                          <TouchableOpacity
+                            style={styles.searchResultItem}
+                            onPress={addDummyMember}
+                          >
+                            <Text style={styles.resultName}>Add "{searchQuery}" as new member</Text>
+                            <Text style={styles.resultCode}>User not found</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
                     <Button
                       mode="contained"
-                      onPress={addMember}
+                      onPress={addDummyMember}
                       style={styles.addButton}
+                      disabled={!searchQuery.trim()}
                     >
                       Add
                     </Button>
@@ -344,11 +445,16 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                   <View style={styles.membersContainer}>
                     {members.map((member, index) => (
                       <Chip
-                        key={`member-${index}-${member}`}
-                        onClose={() => removeMember(member)}
+                        key={`member-${index}-${member.name}`}
+                        onClose={() => removeMember(index)}
                         style={styles.memberChip}
+                        avatar={
+                          member.type === 'existing' ? (
+                            <Text>👤</Text>
+                          ) : undefined
+                        }
                       >
-                        {member}
+                        {member.name} {member.type === 'existing' && `(${member.uniqueCode})`}
                       </Chip>
                     ))}
                   </View>
@@ -621,5 +727,43 @@ const styles = StyleSheet.create({
   },
   submitButtonContent: {
     paddingVertical: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    position: 'relative',
+    zIndex: 1000,
+  },
+  searchResults: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    maxHeight: 200,
+    zIndex: 1000,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  searchResultItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  resultName: {
+    fontSize: 14,
+    fontFamily: Fonts.medium,
+    color: '#333',
+  },
+  resultCode: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
 });
