@@ -7,14 +7,12 @@ import {
   Alert,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
+import { useDispatch } from 'react-redux';
+import { authService } from '../services/authService';
+import { setUser, setLoading, setError } from '../store';
 
-// Mock functions for UI-only mode
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
-const login = async (email: string, password: string) => {
-  // Mock login - always succeeds for UI testing
-  return { success: true, message: 'Login successful' };
-};
 
 interface LoginScreenProps {
   navigation: any;
@@ -23,10 +21,10 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLocalLoading] = useState(false);
+  const dispatch = useDispatch();
 
   const handleLogin = async () => {
-    // Validation
     if (!email || !password) {
       Alert.alert('Error', 'Please fill all fields');
       return;
@@ -42,18 +40,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+
     try {
-      const response = await login(email, password);
+      const response = await authService.login({ email, password });
+      
       if (response.success) {
-        navigation.replace('Main');
+        dispatch(setUser(response.user));
       } else {
-        Alert.alert('Error', response.message || 'Login failed');
+        Alert.alert('Error', 'Login failed');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const errorMessage = error.response?.data?.error || error.message || 'Login failed';
+      dispatch(setError(errorMessage));
+      Alert.alert('Error', errorMessage);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
+      dispatch(setLoading(false));
     }
   };
 

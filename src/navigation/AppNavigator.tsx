@@ -3,8 +3,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, ActivityIndicator } from 'react-native';
-// Mock getToken function for UI-only mode
-const getToken = async () => null; // Always return null for UI testing
+import { useDispatch, useSelector } from 'react-redux';
+import { setUser, setAuthState, initializeAuth } from '../store';
+import { RootState } from '../store';
+import { authService } from '../services/authService';
 import { HomeScreen } from '../screens/HomeScreen';
 import { GroupDetailsScreen } from '../screens/GroupDetailsScreen';
 import { CreateKuriScreen } from '../screens/CreateKuriScreen';
@@ -46,7 +48,7 @@ const TabNavigator = () => (
       tabBarIcon: ({ focused, color, size }) => {
         const iconSize = 24;
         const iconColor = focused ? Colors.primary : Colors.gray400;
-        
+
         if (route.name === 'Home') {
           return (
             <HomeIcon
@@ -109,23 +111,23 @@ const TabNavigator = () => (
       },
     })}
   >
-    <Tab.Screen 
-      name="Home" 
+    <Tab.Screen
+      name="Home"
       component={HomeStack}
       options={{ tabBarLabel: 'Home' }}
     />
-    <Tab.Screen 
-      name="Analytics" 
+    <Tab.Screen
+      name="Analytics"
       component={AnalyticsScreen}
       options={{ tabBarLabel: 'Analytics' }}
     />
-    <Tab.Screen 
-      name="Notifications" 
+    <Tab.Screen
+      name="Notifications"
       component={NotificationsScreen}
       options={{ tabBarLabel: 'Alerts' }}
     />
-    <Tab.Screen 
-      name="Profile" 
+    <Tab.Screen
+      name="Profile"
       component={ProfileStack}
       options={{ tabBarLabel: 'Profile' }}
     />
@@ -133,7 +135,9 @@ const TabNavigator = () => (
 );
 
 export const AppNavigator = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [initializing, setInitializing] = useState(true);
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state: RootState) => state.app);
 
   useEffect(() => {
     checkAuthStatus();
@@ -141,14 +145,25 @@ export const AppNavigator = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const token = await getToken();
-      setIsAuthenticated(!!token);
+      const token = await authService.getStoredToken();
+      if (token) {
+        const user = await authService.getStoredUser();
+        if (user) {
+          dispatch(setUser(user));
+        } else {
+          dispatch(setAuthState(false));
+        }
+      } else {
+        dispatch(setAuthState(false));
+      }
     } catch (error) {
-      setIsAuthenticated(false);
+      dispatch(setAuthState(false));
+    } finally {
+      setInitializing(false);
     }
   };
 
-  if (isAuthenticated === null) {
+  if (initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={Colors.primary} />
@@ -158,38 +173,44 @@ export const AppNavigator = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator 
-        screenOptions={{ 
+      <Stack.Navigator
+        screenOptions={{
           headerShown: false,
           cardStyle: { backgroundColor: Colors.gray50 },
         }}
-        initialRouteName={isAuthenticated ? 'Main' : 'Login'}
       >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-        <Stack.Screen name="Main" component={TabNavigator} />
-        <Stack.Screen 
-          name="GroupDetails" 
-          component={GroupDetailsScreen}
-          options={{
-            presentation: 'card',
-            animationTypeForReplace: 'push',
-          }}
-        />
-        <Stack.Screen 
-          name="CreateKuri" 
-          component={CreateKuriScreen}
-          options={{
-            presentation: 'modal',
-          }}
-        />
-        <Stack.Screen 
-          name="SpinWheel" 
-          component={SpinWheelScreen}
-          options={{
-            presentation: 'modal',
-          }}
-        />
+        {isAuthenticated ? (
+          <>
+            <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen
+              name="GroupDetails"
+              component={GroupDetailsScreen}
+              options={{
+                presentation: 'card',
+                animationTypeForReplace: 'push',
+              }}
+            />
+            <Stack.Screen
+              name="CreateKuri"
+              component={CreateKuriScreen}
+              options={{
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
+              name="SpinWheel"
+              component={SpinWheelScreen}
+              options={{
+                presentation: 'modal',
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

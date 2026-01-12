@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-
 import { Card } from './Card';
 import { Button } from './Button';
 import { Group } from '../types';
@@ -35,6 +34,56 @@ export const GroupCard: React.FC<GroupCardProps> = ({
     }
   };
 
+  // Helper to parse duration string "12 Months" -> 12
+  const getDurationMonths = (durationStr: string): number => {
+    const match = durationStr.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  const durationMonths = getDurationMonths(group.duration);
+
+  // Calculate progress and current month
+  const calculateProgress = () => {
+    const start = new Date(group.startDate);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+
+    const currentMonth = Math.min(diffMonths, durationMonths);
+    const progress =
+      durationMonths > 0
+        ? Math.round((currentMonth / durationMonths) * 100)
+        : 0;
+
+    return { currentMonth, progress };
+  };
+
+  const { currentMonth, progress } = calculateProgress();
+
+  // Calculate next draw date (same day as start date in the next month)
+  const getNextDrawDate = () => {
+    const startDate = new Date(group.startDate);
+    const now = new Date();
+
+    // Calculate next draw date (same day as start date in current/next month)
+    const nextDraw = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      startDate.getDate(),
+    );
+
+    // If the draw date has passed this month, move to next month
+    if (nextDraw <= now) {
+      nextDraw.setMonth(nextDraw.getMonth() + 1);
+    }
+
+    return nextDraw.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -47,7 +96,10 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           <View style={styles.headerContent}>
             <Text style={styles.groupName}>{group.name}</Text>
             <View
-              style={[styles.statusBadge, { backgroundColor: getStatusColor(group.status) }]}
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getStatusColor(group.status) },
+              ]}
             >
               <Text style={styles.statusText}>
                 {group.status.toUpperCase()}
@@ -59,11 +111,13 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         {/* Amount and Members */}
         <View style={styles.details}>
           <View style={styles.amountContainer}>
-            <Text style={styles.amount}>₹{group.amount.toLocaleString()}</Text>
+            <Text style={styles.amount}>
+              ₹{parseInt(group.monthlyAmount).toLocaleString()}
+            </Text>
             <Text style={styles.amountLabel}>per month</Text>
           </View>
           <View style={styles.membersContainer}>
-            <Text style={styles.membersCount}>{group.members.length}</Text>
+            <Text style={styles.membersCount}>{group.memberIds.length}</Text>
             <Text style={styles.membersLabel}>members</Text>
           </View>
         </View>
@@ -72,13 +126,16 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         <View style={styles.progressContainer}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressText}>
-              Month {group.currentMonth} of {group.duration}
+              Month {currentMonth} of {durationMonths}
             </Text>
-            <Text style={styles.progressPercentage}>{group.progress}%</Text>
+            <Text style={styles.progressPercentage}>{progress}%</Text>
           </View>
           <View style={styles.progressBar}>
             <View
-              style={[styles.progressFill, { width: `${group.progress}%`, backgroundColor: Colors.primary }]}
+              style={[
+                styles.progressFill,
+                { width: `${progress}%`, backgroundColor: Colors.primary },
+              ]}
             />
           </View>
         </View>
@@ -87,7 +144,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         {group.status === 'active' && (
           <View style={styles.nextDrawContainer}>
             <Text style={styles.nextDrawLabel}>Next Draw</Text>
-            <Text style={styles.nextDrawDate}>{group.nextDrawDate}</Text>
+            <Text style={styles.nextDrawDate}>{getNextDrawDate()}</Text>
           </View>
         )}
 

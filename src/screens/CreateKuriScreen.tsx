@@ -10,33 +10,44 @@ import {
 import { TextInput, Button, Switch, Chip, Card } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 
-
-import { addGroup } from '../store';
+import { addGroup, setLoading, setError } from '../store';
+import { kuriService } from '../services/kuriService';
 import { Group, Member } from '../types';
 // Simple font definition for UI-only mode
-const Fonts = { regular: 'System', medium: 'System', bold: 'System', semiBold: 'System' };
+const Fonts = {
+  regular: 'System',
+  medium: 'System',
+  bold: 'System',
+  semiBold: 'System',
+};
 
 interface CreateKuriScreenProps {
   navigation: any;
+  route: any;
 }
 
 export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
   navigation,
+  route,
 }) => {
   const dispatch = useDispatch();
+  const { mode, kuriId, kuriData } = route.params || {};
+  const isEditMode = mode === 'edit';
+
   const [isNewKuri, setIsNewKuri] = useState(true);
+  const [joinAsMember, setJoinAsMember] = useState(true);
+  const [loading, setLocalLoading] = useState(false);
   const [formData, setFormData] = useState({
-    groupName: '',
-    monthlyAmount: '',
-    duration: '',
-    startDate: '',
+    groupName: kuriData?.name || '',
+    monthlyAmount: kuriData?.monthlyAmount || '',
+    duration: kuriData?.duration?.replace(' Months', '') || '',
+    startDate: kuriData?.startDate || '',
+    description: kuriData?.description || '',
     agreement:
       'Monthly contribution as agreed. Draw will be conducted on the specified date each month. Winner receives the full collected amount.',
   });
   const [members, setMembers] = useState<string[]>([]);
   const [newMember, setNewMember] = useState('');
-
-  const durations = [6, 12, 18, 24, 36];
 
   const addMember = () => {
     if (newMember.trim() && !members.includes(newMember.trim())) {
@@ -49,46 +60,108 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
     setMembers(members.filter(m => m !== member));
   };
 
-  const handleSubmit = () => {
+  const handleRemoveMember = async (memberId: string) => {
+    if (!kuriId) return;
+
+    try {
+      setLocalLoading(true);
+      const updatedMemberIds = kuriData.members
+        .filter((m: any) => m.id !== memberId)
+        .map((m: any) => m.id);
+
+      await kuriService.updateMembers(kuriId, updatedMemberIds);
+
+      Alert.alert('Success', 'Member removed successfully', [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to remove member');
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!formData.groupName || !formData.monthlyAmount || !formData.duration) {
       Alert.alert('Error', 'Please fill all required fields');
       return;
     }
 
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name: formData.groupName,
-      amount: parseInt(formData.monthlyAmount),
-      members: members.map((name, index) => ({
-        id: (Date.now() + index).toString(),
-        name,
-        phone: `+123456789${index}`,
-        email: `${name.toLowerCase().replace(' ', '')}@example.com`,
-        hasPaid: false,
-        hasWon: false,
-        joinDate: new Date().toISOString().split('T')[0],
-      })),
-      duration: parseInt(formData.duration),
-      startDate: formData.startDate || new Date().toISOString().split('T')[0],
-      status: 'pending',
-      currentMonth: 0,
-      nextDrawDate: '',
-      progress: 0,
-      agreement: formData.agreement,
-    };
+    setLocalLoading(true);
+    dispatch(setLoading(true));
+    dispatch(setError(null));
 
-    dispatch(addGroup(newGroup));
+    try {
+      const kuriPayload = {
+        name: formData.groupName,
+        monthlyAmount: parseInt(formData.monthlyAmount),
+        description: formData.description || formData.agreement,
+        duration: `${formData.duration} Months`,
+        startDate: formData.startDate || new Date().toISOString().split('T')[0],
+        joinAsMember: joinAsMember,
+      };
 
-    Alert.alert('Success!', 'Kuri created successfully!', [
-      {
-        text: 'Share',
-        onPress: () => console.log('Share group'),
-      },
-      {
-        text: 'OK',
-        onPress: () => navigation.goBack(),
-      },
-    ]);
+      if (isEditMode && kuriId) {
+        // Update existing Kuri
+        const response = await kuriService.updateKuri(kuriId, kuriPayload);
+
+        Alert.alert('Success!', 'Kuri updated successfully', [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]);
+      } else {
+        // Create new Kuri
+        const response = await kuriService.createKuri(kuriPayload);
+        console.log(response, '===============');
+
+
+        if (response.success) {
+          // Create local group object for immediate UI update
+          const newGroup: Group = {
+            adminId: response.data.adminId,
+            createdBy: response.data.createdBy,
+            description: response.data.description,
+            duration: response.data.duration,
+            id: response.data.id,
+            memberIds: response.data.memberIds,
+            monthlyAmount: response.data.monthlyAmount,
+            name: response.data.name,
+            startDate: response.data.startDate,
+            status: response.data.status,
+            type: response.data.type,
+          };
+
+          dispatch(addGroup(newGroup));
+
+          Alert.alert(
+            '🎉 Success!',
+            `Your Kuri "${formData.groupName}" has been created successfully!\n\n` +
+            `💰 Monthly Amount: ₹${formData.monthlyAmount}\n` +
+            `📅 Duration: ${formData.duration} Months\n` +
+            `${joinAsMember ? '✅ You are joined as a member' : '👤 You are the admin only'}`,
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.goBack(),
+              },
+            ]
+          );
+        }
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || `Failed to ${isEditMode ? 'update' : 'create'} kuri`;
+      dispatch(setError(errorMessage));
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLocalLoading(false);
+      dispatch(setLoading(false));
+    }
   };
 
   return (
@@ -102,7 +175,9 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
           >
             <Text style={styles.backIcon}>⬅️</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Kuri</Text>
+          <Text style={styles.headerTitle}>
+            {isEditMode ? 'Edit Kuri' : 'Create Kuri'}
+          </Text>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -144,34 +219,16 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
               />
 
               <Text style={styles.sectionTitle}>Duration (Months) *</Text>
-              <View style={styles.durationContainer}>
-                {durations.map(duration => (
-                  <TouchableOpacity
-                    key={duration}
-                    style={[
-                      styles.durationChip,
-                      formData.duration === duration.toString() &&
-                        styles.selectedDuration,
-                    ]}
-                    onPress={() =>
-                      setFormData({
-                        ...formData,
-                        duration: duration.toString(),
-                      })
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.durationText,
-                        formData.duration === duration.toString() &&
-                          styles.selectedDurationText,
-                      ]}
-                    >
-                      {duration}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <TextInput
+                mode="outlined"
+                value={formData.duration}
+                onChangeText={text =>
+                  setFormData({ ...formData, duration: text })
+                }
+                keyboardType="numeric"
+                placeholder="Enter duration in months"
+                style={styles.input}
+              />
 
               <TextInput
                 label="Start Date"
@@ -183,46 +240,124 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 mode="outlined"
                 placeholder="YYYY-MM-DD"
               />
+
+              <TextInput
+                label="Description (Optional)"
+                value={formData.description}
+                onChangeText={text =>
+                  setFormData({ ...formData, description: text })
+                }
+                style={styles.input}
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+              />
+
+              <View style={styles.switchContainer}>
+                <Text style={styles.switchLabel}>Join as Member</Text>
+                <Switch value={joinAsMember} onValueChange={setJoinAsMember} />
+              </View>
+              <Text style={styles.switchDescription}>
+                {joinAsMember
+                  ? 'You will be both admin and member (pay monthly amount)'
+                  : 'You will only manage the group (admin only)'}
+              </Text>
             </Card>
           </View>
 
           {/* Members */}
           <View>
             <Card style={styles.membersCard}>
-              <Text style={styles.cardTitle}>Add Members</Text>
+              <Text style={styles.cardTitle}>
+                {isEditMode ? 'Members' : 'Add Members'}
+              </Text>
 
-              <View style={styles.addMemberContainer}>
-                <TextInput
-                  label="Member Name"
-                  value={newMember}
-                  onChangeText={setNewMember}
-                  style={styles.memberInput}
-                  mode="outlined"
-                />
-                <Button
-                  mode="contained"
-                  onPress={addMember}
-                  style={styles.addButton}
-                >
-                  Add
-                </Button>
-              </View>
+              {isEditMode && kuriData?.members && (
+                <View style={styles.existingMembersContainer}>
+                  <Text style={styles.sectionSubtitle}>Current Members:</Text>
+                  {kuriData.members.map((member: any) => (
+                    <View key={member.id} style={styles.existingMemberItem}>
+                      <View>
+                        <Text style={styles.existingMemberName}>{member.name}</Text>
+                        <Text style={styles.existingMemberCode}>{member.uniqueCode}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          Alert.alert(
+                            'Remove Member',
+                            `Remove ${member.name} from this Kuri?`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              {
+                                text: 'Remove',
+                                style: 'destructive',
+                                onPress: () => handleRemoveMember(member.id),
+                              },
+                            ]
+                          );
+                        }}
+                        style={styles.removeButton}
+                      >
+                        <Text style={styles.removeButtonText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
 
-              <View style={styles.membersContainer}>
-                {members.map((member, index) => (
-                  <Chip
-                    key={index}
-                    onClose={() => removeMember(member)}
-                    style={styles.memberChip}
-                  >
-                    {member}
-                  </Chip>
-                ))}
-              </View>
+              {isEditMode && kuriData?.winners && kuriData.winners.length > 0 && (
+                <View style={styles.existingWinnersContainer}>
+                  <Text style={styles.sectionSubtitle}>Winners:</Text>
+                  {kuriData.winners.map((winner: any, index: number) => {
+                    const member = kuriData.members?.find((m: any) => m.id === winner.memberId);
+                    return (
+                      <View key={`winner-${winner.memberId}-${winner.month}-${index}`} style={styles.existingWinnerItem}>
+                        <Text style={styles.existingWinnerName}>
+                          {member?.name || 'Unknown'}
+                        </Text>
+                        <Text style={styles.existingWinnerMonth}>Month {winner.month}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
 
-              <Button mode="outlined" style={styles.shareButton}>
-                Share Invite Link
-              </Button>
+              {!isEditMode && (
+                <View>
+                  <View style={styles.addMemberContainer}>
+                    <TextInput
+                      label="Member Name"
+                      value={newMember}
+                      onChangeText={setNewMember}
+                      style={styles.memberInput}
+                      mode="outlined"
+                    />
+                    <Button
+                      mode="contained"
+                      onPress={addMember}
+                      style={styles.addButton}
+                    >
+                      Add
+                    </Button>
+                  </View>
+
+                  <View style={styles.membersContainer}>
+                    {members.map((member, index) => (
+                      <Chip
+                        key={`member-${index}-${member}`}
+                        onClose={() => removeMember(member)}
+                        style={styles.memberChip}
+                      >
+                        {member}
+                      </Chip>
+                    ))}
+                  </View>
+
+                  <Button mode="outlined" style={styles.shareButton}>
+                    Share Invite Link
+                  </Button>
+                </View>
+              )}
             </Card>
           </View>
 
@@ -252,8 +387,13 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
               onPress={handleSubmit}
               style={styles.submitButton}
               contentStyle={styles.submitButtonContent}
+              loading={loading}
+              disabled={loading}
             >
-              Create Kuri
+              {loading
+                ? (isEditMode ? 'Updating...' : 'Creating...')
+                : (isEditMode ? 'Update Kuri' : 'Create Kuri')
+              }
             </Button>
           </View>
         </ScrollView>
@@ -388,6 +528,85 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     borderColor: '#2196F3',
+  },
+  existingMembersContainer: {
+    marginBottom: 16,
+  },
+  existingMemberItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  existingMemberName: {
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    color: '#333',
+  },
+  existingMemberCode: {
+    fontSize: 12,
+    fontFamily: Fonts.regular,
+    color: '#666',
+  },
+  existingWinnersContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  existingWinnerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  existingWinnerName: {
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    color: '#333',
+  },
+  existingWinnerMonth: {
+    fontSize: 12,
+    fontFamily: Fonts.regular,
+    color: '#2196F3',
+    fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.medium,
+    color: '#666',
+    marginBottom: 8,
+  },
+  removeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#ff4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontFamily: Fonts.medium,
+    color: '#333',
+  },
+  switchDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
   },
   agreementCard: {
     marginBottom: 24,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { Searchbar } from 'react-native-paper';
 import { useSelector, useDispatch } from 'react-redux';
 
-
 import { RootState } from '../store';
-import { setActiveFilter } from '../store';
+import { setActiveFilter, setGroups, setLoading, setError } from '../store';
+import { kuriService } from '../services/kuriService';
 import { GroupCard } from '../components/GroupCard';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -28,10 +30,55 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { groups, activeFilter, user } = useSelector(
+  const { groups, activeFilter, user, loading } = useSelector(
     (state: RootState) => state.app,
   );
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadKuris = async () => {
+    try {
+      dispatch(setLoading(true));
+      const response = await kuriService.getMyKuris(user?.id);
+      console.log(response);
+
+      if (response) {
+        // Transform API data to match local Group interface
+        const transformedGroups: Group[] = response.map(kuri => ({
+          adminId: kuri.adminId,
+          createdBy: kuri.createdBy,
+          description: kuri.description,
+          duration: kuri.duration,
+          id: kuri.id,
+          memberIds: kuri.memberIds,
+          monthlyAmount: kuri.monthlyAmount,
+          name: kuri.name,
+          startDate: kuri.startDate,
+          status: kuri.status,
+          type: kuri.type,
+        }));
+
+        dispatch(setGroups(transformedGroups));
+      }
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || error.message || 'Failed to load kuris';
+      dispatch(setError(errorMessage));
+      Alert.alert('Error', errorMessage);
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadKuris();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadKuris();
+  }, []);
 
   const filterTabs = [
     { key: 'all', label: 'All', count: groups.length },
@@ -43,7 +90,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     {
       key: 'my_groups',
       label: 'My Groups',
-      count: groups.filter(g => g.members.some(m => m.id === user.id)).length,
+      count: groups.filter(g => g.memberIds.includes(user?.id || '')).length,
     },
     {
       key: 'completed',
@@ -61,13 +108,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       (activeFilter === 'active' && group.status === 'active') ||
       (activeFilter === 'completed' && group.status === 'completed') ||
       (activeFilter === 'my_groups' &&
-        group.members.some(m => m.id === user.id));
+        group.memberIds.includes(user?.id || ''));
 
     return matchesSearch && matchesFilter;
   });
 
   const activeGroups = groups.filter(
-    g => g.status === 'active' && g.members.some(m => m.id === user.id),
+    g => g.status === 'active' && g.memberIds.includes(user?.id || ''),
   ).length;
 
   return (
@@ -78,7 +125,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.greeting}>Hello, {user.name}! 👋</Text>
+            <Text style={styles.greeting}>
+              Hello, {user?.name || 'User'}! 👋
+            </Text>
             <Text style={styles.subtitle}>
               Let's grow your savings together
             </Text>
@@ -168,6 +217,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           style={styles.groupsList}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.groupsContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
           {filteredGroups.length > 0 ? (
             filteredGroups.map(group => (

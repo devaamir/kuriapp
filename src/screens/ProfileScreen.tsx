@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,8 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 
 import { RootState } from '../store';
-import { updateUser } from '../store';
-// Mock logout function for UI-only mode
-const logout = async () => {
-  console.log('Mock logout called');
-};
+import { updateUser, clearUser } from '../store';
+import { authService } from '../services/authService';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Colors } from '../theme/colors';
@@ -32,7 +29,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user, groups } = useSelector((state: RootState) => state.app);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState(user);
+  const [formData, setFormData] = useState({
+    id: '',
+    name: '',
+    email: '',
+    phone: '',
+    age: 0,
+    upiId: '',
+  });
   const [notifications, setNotifications] = useState({
     paymentReminders: true,
     drawResults: true,
@@ -40,8 +44,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     marketingEmails: false,
   });
 
-  const activeGroups = groups.filter(g => g.status === 'active' && g.members.some(m => m.id === user.id)).length;
-  const totalContributions = groups.reduce((sum, group) => sum + (group.amount * group.currentMonth), 0);
+  useEffect(() => {
+    if (user) {
+      setFormData(user);
+    }
+  }, [user]);
+
+  if (!user) return null;
+
+  const activeGroups = groups.filter(
+    g => g.status === 'active' && g.memberIds.includes(user?.id || ''),
+  ).length;
+
+  const totalContributions = groups.reduce((sum, group) => {
+    const start = new Date(group.startDate);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+    const durationMonths = parseInt(
+      group.duration.match(/(\d+)/)?.[1] || '0',
+      10,
+    );
+    const currentMonth = Math.min(diffMonths, durationMonths);
+
+    return sum + parseInt(group.monthlyAmount) * currentMonth;
+  }, 0);
 
   const handleSave = () => {
     dispatch(updateUser(formData));
@@ -57,8 +84,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         style: 'destructive',
         onPress: async () => {
           try {
-            await logout();
-            navigation.replace('Login');
+            await authService.logout();
+            dispatch(clearUser());
           } catch (error) {
             Alert.alert('Error', 'Failed to logout');
           }
@@ -68,7 +95,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase();
   };
 
   return (
@@ -79,7 +110,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>👤 Profile</Text>
-          <Text style={styles.headerSubtitle}>Manage your account settings</Text>
+          <Text style={styles.headerSubtitle}>
+            Manage your account settings
+          </Text>
         </View>
 
         {/* Profile Card */}
@@ -115,7 +148,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <Text style={styles.statLabel}>Active Groups</Text>
           </Card>
           <Card style={styles.statCard}>
-            <Text style={styles.statValue}>₹{totalContributions.toLocaleString()}</Text>
+            <Text style={styles.statValue}>
+              ₹{totalContributions.toLocaleString()}
+            </Text>
             <Text style={styles.statLabel}>Total Paid</Text>
           </Card>
         </View>
@@ -126,7 +161,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* Personal Information */}
         <Card style={styles.infoCard}>
           <Text style={styles.cardTitle}>Personal Information</Text>
-          
+
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Full Name</Text>
             <TextInput
@@ -163,8 +198,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <Text style={styles.inputLabel}>Age</Text>
             <TextInput
               style={[styles.input, !isEditing && styles.disabledInput]}
-              value={formData.age.toString()}
-              onChangeText={text => setFormData({ ...formData, age: parseInt(text) || 0 })}
+              value={(formData.age || 0).toString()}
+              onChangeText={text =>
+                setFormData({ ...formData, age: parseInt(text) || 0 })
+              }
               editable={isEditing}
               keyboardType="numeric"
             />
@@ -174,7 +211,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* Payment Information */}
         <Card style={styles.paymentCard}>
           <Text style={styles.cardTitle}>Payment Information</Text>
-          
+
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>UPI ID</Text>
             <TextInput
@@ -206,7 +243,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 setNotifications({ ...notifications, paymentReminders: value })
               }
               trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
-              thumbColor={notifications.paymentReminders ? Colors.primary : Colors.gray400}
+              thumbColor={
+                notifications.paymentReminders ? Colors.primary : Colors.gray400
+              }
             />
           </View>
 
@@ -218,7 +257,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 setNotifications({ ...notifications, drawResults: value })
               }
               trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
-              thumbColor={notifications.drawResults ? Colors.primary : Colors.gray400}
+              thumbColor={
+                notifications.drawResults ? Colors.primary : Colors.gray400
+              }
             />
           </View>
 
@@ -230,7 +271,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 setNotifications({ ...notifications, groupInvites: value })
               }
               trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
-              thumbColor={notifications.groupInvites ? Colors.primary : Colors.gray400}
+              thumbColor={
+                notifications.groupInvites ? Colors.primary : Colors.gray400
+              }
             />
           </View>
 
@@ -242,7 +285,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                 setNotifications({ ...notifications, marketingEmails: value })
               }
               trackColor={{ false: Colors.gray300, true: Colors.primaryLight }}
-              thumbColor={notifications.marketingEmails ? Colors.primary : Colors.gray400}
+              thumbColor={
+                notifications.marketingEmails ? Colors.primary : Colors.gray400
+              }
             />
           </View>
         </Card>
@@ -269,7 +314,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             title="Logout"
             onPress={handleLogout}
             variant="outline"
-            style={[styles.logoutButton, { borderColor: Colors.error }]}
+            style={StyleSheet.flatten([
+              styles.logoutButton,
+              { borderColor: Colors.error },
+            ])}
             size="medium"
           />
         )}

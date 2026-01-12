@@ -1,25 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { Button, FAB, Chip } from 'react-native-paper';
-import { useSelector } from 'react-redux';
-
+import { useSelector, useDispatch } from 'react-redux';
 
 import { BackArrowIcon, NotificationIcon } from '../components/TabIcons';
 import { RootState } from '../store';
-import { Card } from 'react-native-paper';
-import { Member } from '../types';
-// Simple font definition for UI-only mode
-const Fonts = { regular: 'System', medium: 'System', bold: 'System', semiBold: 'System' };
+import { updateGroup, setLoading, setError } from '../store';
+import { kuriService } from '../services/kuriService';
+import { Card } from '../components/Card';
+import { Group, Member } from '../types';
+import { Colors } from '../theme/colors';
+import { Typography } from '../theme/typography';
+import { Spacing, BorderRadius } from '../theme/spacing';
 
 interface GroupDetailsScreenProps {
   navigation: any;
   route: any;
+}
+
+// Local interface for UI that includes full member details
+interface ExtendedGroup extends Omit<Group, 'memberIds'> {
+  members: Member[];
+  winners?: { memberId: string; month: number }[];
 }
 
 export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
@@ -27,18 +38,134 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
   route,
 }) => {
   const { groupId } = route.params;
-  const { groups } = useSelector((state: RootState) => state.app);
-  const group = groups.find(g => g.id === groupId);
+  const dispatch = useDispatch();
+  const { groups, loading, user } = useSelector(
+    (state: RootState) => state.app,
+  );
+  const reduxGroup = groups.find(g => g.id === groupId);
+
+  // Local state to hold full group details including members
+  const [groupDetails, setGroupDetails] = useState<ExtendedGroup | null>(null);
   const [activeTab, setActiveTab] = useState('summary');
   const [memberFilter, setMemberFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
-  if (!group) {
+  const loadGroupDetails = async () => {
+    try {
+      dispatch(setLoading(true));
+      const kuriData = await kuriService.getKuriDetails(groupId);
+
+      console.log(kuriData, 'Kuri Details Response');
+      console.log(kuriData.winners, 'Winners Data');
+
+      // Transform API data to local ExtendedGroup
+      const extendedGroup: ExtendedGroup = {
+        id: kuriData.id,
+        name: kuriData.name,
+        description: kuriData.description,
+        monthlyAmount: kuriData.monthlyAmount.toString(),
+        status: kuriData.status,
+        type: 'new',
+        duration: kuriData.duration,
+        startDate: kuriData.startDate,
+        adminId: kuriData.adminId,
+        createdBy: kuriData.adminId,
+        winners: kuriData.winners || [],
+        members: kuriData.members.map(member => {
+          const memberPayments = (kuriData.payments || []).filter(
+            p => p.memberId === member.id,
+          );
+          const hasPaid = memberPayments.some(p => p.status === 'paid');
+
+          return {
+            id: member.id,
+            name: member.name,
+            uniqueCode: member.uniqueCode,
+            avatar: member.avatar,
+            role: member.role,
+            isDummy: false,
+            phone: '',
+            email: member.email,
+            hasPaid,
+            hasWon: false,
+            joinDate: new Date().toISOString().split('T')[0],
+          };
+        }),
+      };
+
+      setGroupDetails(extendedGroup);
+
+      // Update Redux with strict Group interface (memberIds only)
+      const reduxUpdate: Partial<Group> = {
+        ...extendedGroup,
+        memberIds: kuriData.memberIds,
+      };
+      // Remove members from reduxUpdate to avoid type error
+      delete (reduxUpdate as any).members;
+
+      dispatch(updateGroup({ id: groupId, updates: reduxUpdate }));
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to load group details';
+      dispatch(setError(errorMessage));
+      Alert.alert('Error', errorMessage);
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadGroupDetails();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadGroupDetails();
+  }, [groupId]);
+
+  // Use local details if available, otherwise fall back to redux group (which might miss members)
+  const currentGroup = groupDetails;
+
+  if (!currentGroup && !reduxGroup) {
     return (
       <View style={styles.container}>
         <Text>Group not found</Text>
       </View>
     );
   }
+
+  // Helper to parse duration string "12 Months" -> 12
+  const getDurationMonths = (durationStr: string): number => {
+    if (!durationStr) return 0;
+    const match = durationStr.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  const durationMonths = currentGroup
+    ? getDurationMonths(currentGroup.duration)
+    : 0;
+
+  // Calculate progress and current month
+  const calculateProgress = () => {
+    if (!currentGroup) return { currentMonth: 0, progress: 0 };
+    const start = new Date(currentGroup.startDate);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - start.getTime());
+    const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+
+    const currentMonth = Math.min(diffMonths, durationMonths);
+    const progress =
+      durationMonths > 0
+        ? Math.round((currentMonth / durationMonths) * 100)
+        : 0;
+
+    return { currentMonth, progress };
+  };
+
+  const { currentMonth, progress } = calculateProgress();
 
   const tabs = [
     { key: 'summary', label: 'Summary' },
@@ -47,71 +174,143 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
     { key: 'chat', label: 'Chat' },
   ];
 
+  const isAdmin = currentGroup?.adminId === user?.id;
+
   const memberFilters = [
     { key: 'all', label: 'All' },
-    { key: 'paid', label: 'Paid' },
-    { key: 'unpaid', label: 'Unpaid' },
+    ...(isAdmin
+      ? [
+          { key: 'paid', label: 'Paid' },
+          { key: 'unpaid', label: 'Unpaid' },
+        ]
+      : []),
     { key: 'winners', label: 'Winners' },
   ];
 
-  const filteredMembers = group.members.filter((member: Member) => {
-    switch (memberFilter) {
-      case 'paid':
-        return member.hasPaid;
-      case 'unpaid':
-        return !member.hasPaid;
-      case 'winners':
-        return member.hasWon;
-      default:
-        return true;
+  const filteredMembers = currentGroup
+    ? memberFilter === 'winners'
+      ? (currentGroup.winners || [])
+          .map(winner => {
+            const member = currentGroup.members.find(
+              m => m.id === winner.memberId,
+            );
+            return member ? { ...member, winnerMonth: winner.month } : null;
+          })
+          .filter(Boolean)
+      : (currentGroup.members || []).filter((member: Member) => {
+          switch (memberFilter) {
+            case 'paid':
+              return member.hasPaid;
+            case 'unpaid':
+              return !member.hasPaid;
+            default:
+              return true;
+          }
+        })
+    : [];
+
+  const renderCountdown = () => {
+    if (!currentGroup) return null;
+
+    const startDate = new Date(currentGroup.startDate);
+    const now = new Date();
+
+    // Calculate next draw date (same day as start date in the next month)
+    const nextDrawDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      startDate.getDate(),
+    );
+
+    // If the draw date has passed this month, move to next month
+    if (nextDrawDate <= now) {
+      nextDrawDate.setMonth(nextDrawDate.getMonth() + 1);
     }
-  });
 
-  const renderCountdown = () => (
-    <Card style={styles.countdownCard}>
-      <Text style={styles.countdownTitle}>Next Draw In</Text>
-      <Text style={styles.countdownTime}>2d 14h 32m</Text>
-      <Button
-        mode="contained"
-        style={styles.spinButton}
-        onPress={() => navigation.navigate('SpinWheel', { groupId: group.id })}
-      >
-        Spin Now
-      </Button>
-    </Card>
-  );
+    // Check if we've exceeded duration
+    if (currentMonth >= durationMonths) {
+      return (
+        <Card style={styles.countdownCard}>
+          <Text style={styles.countdownTitle}>Next Draw</Text>
+          <Text style={styles.countdownTime}>Kuri Completed</Text>
+        </Card>
+      );
+    }
 
-  const renderSummaryTab = () => (
-    <View>
-      {renderCountdown()}
+    const diff = nextDrawDate.getTime() - now.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-      <Card style={styles.statsCard}>
-        <Text style={styles.cardTitle}>Group Statistics</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              ₹{(group.amount * group.currentMonth).toLocaleString()}
-            </Text>
-            <Text style={styles.statLabel}>Total Collected</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {group.members.filter(m => m.hasPaid).length}
-            </Text>
-            <Text style={styles.statLabel}>Paid Members</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{group.progress}%</Text>
-            <Text style={styles.statLabel}>Completion</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{group.lastWinner || 'None'}</Text>
-            <Text style={styles.statLabel}>Last Winner</Text>
-          </View>
-        </View>
+    return (
+      <Card style={styles.countdownCard}>
+        <Text style={styles.countdownTitle}>Next Draw In</Text>
+        <Text style={styles.countdownTime}>{days} days</Text>
+        <Button
+          mode="contained"
+          style={styles.spinButton}
+          onPress={() => navigation.navigate('SpinWheel', { groupId: groupId })}
+        >
+          Spin Now
+        </Button>
       </Card>
-    </View>
-  );
+    );
+  };
+
+  const renderSummaryTab = () => {
+    const lastWinner =
+      currentGroup?.winners && currentGroup.winners.length > 0
+        ? currentGroup.winners[currentGroup.winners.length - 1]
+        : null;
+    const lastWinnerMember = lastWinner
+      ? currentGroup?.members.find(m => m.id === lastWinner.memberId)
+      : null;
+
+    return (
+      <View>
+        {renderCountdown()}
+
+        <Card style={styles.statsCard}>
+          <Text style={styles.cardTitle}>Group Statistics</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                ₹
+                {(
+                  parseInt(currentGroup?.monthlyAmount || '0') * currentMonth
+                ).toLocaleString()}
+              </Text>
+              <Text style={styles.statLabel}>Total Collected</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {(currentGroup?.members || []).filter(m => m.hasPaid).length}
+              </Text>
+              <Text style={styles.statLabel}>Paid Members</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {currentGroup?.duration || 'N/A'}
+              </Text>
+              <Text style={styles.statLabel}>Duration</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {currentMonth}/{durationMonths}
+              </Text>
+              <Text style={styles.statLabel}>Completion ({progress}%)</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {lastWinnerMember ? lastWinnerMember.name : 'None'}
+              </Text>
+              <Text style={styles.statLabel}>Last Winner</Text>
+            </View>
+          </View>
+        </Card>
+      </View>
+    );
+  };
 
   const renderMembersTab = () => (
     <View>
@@ -133,10 +332,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
       </ScrollView>
 
       {filteredMembers.map((member, index) => (
-        <View
-          key={member.id}
-          delay={index * 100}
-        >
+        <View key={member.id}>
           <Card style={styles.memberCard}>
             <View style={styles.memberInfo}>
               <View style={styles.memberAvatar}>
@@ -146,11 +342,19 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
               </View>
               <View style={styles.memberDetails}>
                 <Text style={styles.memberName}>{member.name}</Text>
-                <Text style={styles.memberPhone}>{member.phone}</Text>
+                <Text style={styles.memberPhone}>
+                  {memberFilter === 'winners' && member.winnerMonth
+                    ? `Month ${member.winnerMonth}`
+                    : member.email}
+                </Text>
               </View>
               <View style={styles.memberStatus}>
-                {member.hasPaid && <Text style={styles.statusEmoji}>✅</Text>}
-                {member.hasWon && <Text style={styles.statusEmoji}>🏆</Text>}
+                {memberFilter === 'winners' && (
+                  <Text style={styles.statusEmoji}>🏆</Text>
+                )}
+                {memberFilter !== 'winners' && member.hasPaid && (
+                  <Text style={styles.statusEmoji}>✅</Text>
+                )}
               </View>
             </View>
           </Card>
@@ -163,7 +367,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
     <Card style={styles.agreementCard}>
       <Text style={styles.cardTitle}>Group Agreement</Text>
       <ScrollView style={styles.agreementScroll}>
-        <Text style={styles.agreementText}>{group.agreement}</Text>
+        <Text style={styles.agreementText}>{currentGroup?.description}</Text>
         <Text style={styles.agreementText}>
           {'\n'}Terms and Conditions:{'\n'}
           1. Monthly contribution must be paid by the 15th of each month{'\n'}
@@ -211,6 +415,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <View style={styles.gradient}>
         {/* Header */}
         <View style={styles.header}>
@@ -220,8 +425,22 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
           >
             <BackArrowIcon width={20} height={20} fill="#333" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{group.name}</Text>
+          <Text style={styles.headerTitle}>
+            {currentGroup?.name || reduxGroup?.name}
+          </Text>
           <View style={styles.headerActions}>
+            {isAdmin && (
+              <TouchableOpacity 
+                style={styles.iconButton}
+                onPress={() => navigation.navigate('CreateKuri', { 
+                  mode: 'edit', 
+                  kuriId: groupId,
+                  kuriData: currentGroup 
+                })}
+              >
+                <Text style={styles.editIcon}>✏️</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.iconButton}>
               <NotificationIcon width={20} height={20} fill="#333" />
             </TouchableOpacity>
@@ -255,7 +474,13 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
         </View>
 
         {/* Content */}
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
           {renderTabContent()}
         </ScrollView>
 
@@ -273,114 +498,98 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
   gradient: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
     paddingTop: 60,
-    paddingBottom: 24,
+    paddingBottom: Spacing.lg,
+    backgroundColor: Colors.background,
   },
   backButton: {
-    padding: 12,
-    marginRight: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  backIcon: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
+    padding: Spacing.sm,
+    marginRight: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
   },
   headerTitle: {
     flex: 1,
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-    fontFamily: Fonts.semiBold,
-    color: '#1a1a1a',
+    ...Typography.h2,
+    color: Colors.text,
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.sm,
   },
   iconButton: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.surface,
   },
-  iconEmoji: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
+  editIcon: {
+    fontSize: 18,
   },
   tabContainer: {
-    marginBottom: 16,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     marginHorizontal: 6,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surface,
   },
   activeTab: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   tabText: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    fontWeight: '500',
-    color: '#666',
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
   activeTabText: {
-    color: 'white',
+    color: Colors.white,
   },
   content: {
     flex: 1,
-    // maxHeight: 350,
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.lg,
   },
   countdownCard: {
     alignItems: 'center',
-    marginBottom: 24,
-    padding: 24,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
   },
   countdownTitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#666',
-    marginBottom: 12,
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
   },
   countdownTime: {
-    fontSize: 32,
-    fontFamily: Fonts.bold,
-    fontWeight: '700',
-    fontFamily: Fonts.semiBold,
-    color: '#2196F3',
-    marginBottom: 24,
+    ...Typography.h1,
+    color: Colors.primary,
+    marginBottom: Spacing.lg,
   },
   spinButton: {
     paddingHorizontal: 40,
   },
   statsCard: {
-    marginBottom: 24,
-    padding: 20,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
   },
   cardTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '600',
-    fontFamily: Fonts.semiBold,
-    color: '#1a1a1a',
-    marginBottom: 20,
+    ...Typography.h3,
+    color: Colors.text,
+    marginBottom: Spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 20,
+    gap: Spacing.md,
   },
   statItem: {
     flex: 1,
@@ -388,27 +597,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    fontWeight: '700',
-    fontFamily: Fonts.semiBold,
-    color: '#2196F3',
+    ...Typography.h2,
+    color: Colors.primary,
   },
   statLabel: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: '#666',
-    marginTop: 8,
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
   },
   memberFilters: {
-    marginBottom: 20,
+    marginBottom: Spacing.md,
   },
   memberFilterChip: {
-    marginRight: 12,
+    marginRight: Spacing.sm,
   },
   memberCard: {
-    marginBottom: 16,
-    padding: 16,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
   },
   memberInfo: {
     flexDirection: 'row',
@@ -417,55 +622,47 @@ const styles = StyleSheet.create({
   memberAvatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#2196F3',
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: Spacing.md,
   },
   memberInitial: {
-    color: 'white',
-    fontWeight: '600',
-    fontFamily: Fonts.semiBold,
-    fontSize: 16,
-    fontFamily: Fonts.regular,
+    ...Typography.body,
+    color: Colors.white,
   },
   memberDetails: {
     flex: 1,
   },
   memberName: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    fontWeight: '500',
-    color: '#1a1a1a',
+    ...Typography.body,
+    color: Colors.text,
     marginBottom: 4,
   },
   memberPhone: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: '#666',
+    ...Typography.caption,
+    // color: Colors.textSecondary,
   },
   memberStatus: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.sm,
   },
   statusEmoji: {
     fontSize: 20,
-    fontFamily: Fonts.semiBold,
   },
   agreementScroll: {
     maxHeight: 300,
-    marginBottom: 24,
+    marginBottom: Spacing.lg,
   },
   agreementText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
+    ...Typography.body,
+    color: Colors.text,
     lineHeight: 22,
-    color: '#333',
   },
   agreementActions: {
     flexDirection: 'row',
-    gap: 16,
+    gap: Spacing.md,
   },
   agreementButton: {
     flex: 1,
@@ -475,34 +672,66 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   chatPlaceholder: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: '#666',
-    marginBottom: 12,
+    ...Typography.body,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
   },
   chatSubtext: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: '#999',
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
   fab: {
     position: 'absolute',
-    margin: 20,
+    margin: Spacing.md,
     right: 0,
     bottom: 0,
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   fabIcon: {
     fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    color: 'white',
+    color: Colors.white,
   },
   agreementCard: {
-    marginBottom: 24,
-    padding: 20,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
   },
   chatCard: {
-    marginBottom: 24,
-    padding: 20,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  winnersCard: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  winnerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  winnerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  winnerInitial: {
+    ...Typography.body,
+    color: Colors.white,
+  },
+  winnerDetails: {
+    flex: 1,
+  },
+  winnerName: {
+    ...Typography.body,
+    color: Colors.text,
+  },
+  winnerMonth: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
 });

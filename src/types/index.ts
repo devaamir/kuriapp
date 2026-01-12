@@ -1,16 +1,15 @@
 export interface Group {
+  adminId: string;
+  createdBy: string;
+  description: string;
+  duration: string;
   id: string;
+  memberIds: string[];
+  monthlyAmount: string;
   name: string;
-  amount: number;
-  members: Member[];
-  duration: number;
   startDate: string;
-  status: 'active' | 'completed' | 'pending';
-  currentMonth: number;
-  nextDrawDate: string;
-  progress: number;
-  lastWinner?: string;
-  agreement: string;
+  status: string;
+  type: string;
 }
 
 export interface Member {
@@ -21,11 +20,22 @@ export interface Member {
   hasPaid: boolean;
   hasWon: boolean;
   joinDate: string;
+  // API fields
+  uniqueCode?: string;
+  avatar?: string;
+  role?: 'admin' | 'member';
+  isDummy?: boolean;
 }
 
 export interface Notification {
   id: string;
-  type: 'payment_due' | 'payment_paid' | 'spin_reminder' | 'draw_result' | 'group_invite' | 'agreement_pending';
+  type:
+    | 'payment_due'
+    | 'payment_paid'
+    | 'spin_reminder'
+    | 'draw_result'
+    | 'group_invite'
+    | 'agreement_pending';
   title: string;
   message: string;
   date: string;
@@ -37,10 +47,15 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  phone: string;
-  age: number;
-  upiId: string;
+  phone?: string;
+  age?: number;
+  upiId?: string;
   profilePicture?: string;
+  // API fields
+  uniqueCode?: string;
+  role?: string;
+  avatar?: string;
+  status?: string;
 }
 
 export interface Analytics {

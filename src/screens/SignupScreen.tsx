@@ -7,14 +7,12 @@ import {
   Alert,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
+import { useDispatch } from 'react-redux';
+import { authService } from '../services/authService';
+import { setUser, setLoading, setError } from '../store';
 
-// Mock functions for UI-only mode
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
-const register = async (name: string, email: string, password: string) => {
-  // Mock register - always succeeds for UI testing
-  return { success: true, message: 'Registration successful' };
-};
 
 interface SignupScreenProps {
   navigation: any;
@@ -25,10 +23,10 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLocalLoading] = useState(false);
+  const dispatch = useDispatch();
 
   const handleSignup = async () => {
-    // Validation
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill all fields');
       return;
@@ -49,18 +47,26 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+
     try {
-      const response = await register(name, email, password);
+      const response = await authService.register({ name, email, password });
+      
       if (response.success) {
-        navigation.replace('Main');
+        dispatch(setUser(response.user));
+        Alert.alert('Success', response.message || 'Account created successfully');
       } else {
-        Alert.alert('Error', response.message || 'Registration failed');
+        Alert.alert('Error', 'Registration failed');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
+      dispatch(setError(errorMessage));
+      Alert.alert('Error', errorMessage);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
+      dispatch(setLoading(false));
     }
   };
 
