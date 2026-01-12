@@ -63,7 +63,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
-    if (text.length > 2) {
+    if (text.length > 0) {
       setIsSearching(true);
       setShowResults(true);
       try {
@@ -420,7 +420,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                           ))}
                         </ScrollView>
                       )}
-                      {showResults && searchResults.length === 0 && searchQuery.length > 2 && (
+                      {showResults && searchResults.length === 0 && searchQuery.length > 0 && (
                         <View style={styles.searchResults}>
                           <TouchableOpacity
                             style={styles.searchResultItem}
