@@ -8,6 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { TextInput, Button, Switch, Chip, Card } from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useDispatch } from 'react-redux';
 
 import { addGroup, setLoading, setError } from '../store';
@@ -60,6 +61,15 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      setFormData({ ...formData, startDate: formattedDate });
+    }
+  };
 
   const handleSearch = async (text: string) => {
     setSearchQuery(text);
@@ -174,6 +184,8 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
       } else {
         // Create new Kuri
         const response = await kuriService.createKuri(kuriPayload);
+        console.log(response);
+
 
         if (response.success) {
           // Add members if any
@@ -299,16 +311,25 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 style={styles.input}
               />
 
-              <TextInput
-                label="Start Date"
-                value={formData.startDate}
-                onChangeText={text =>
-                  setFormData({ ...formData, startDate: text })
-                }
-                style={styles.input}
-                mode="outlined"
-                placeholder="YYYY-MM-DD"
-              />
+              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                <TextInput
+                  label="Start Date"
+                  value={formData.startDate}
+                  style={styles.input}
+                  mode="outlined"
+                  placeholder="YYYY-MM-DD"
+                  editable={false}
+                  right={<TextInput.Icon icon="calendar" />}
+                />
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={formData.startDate ? new Date(formData.startDate) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={onDateChange}
+                />
+              )}
 
               <TextInput
                 label="Description (Optional)"
@@ -322,15 +343,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 numberOfLines={3}
               />
 
-              <View style={styles.switchContainer}>
-                <Text style={styles.switchLabel}>Join as Member</Text>
-                <Switch value={joinAsMember} onValueChange={setJoinAsMember} />
-              </View>
-              <Text style={styles.switchDescription}>
-                {joinAsMember
-                  ? 'You will be both admin and member (pay monthly amount)'
-                  : 'You will only manage the group (admin only)'}
-              </Text>
+
             </Card>
           </View>
 
@@ -467,24 +480,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
             </Card>
           </View>
 
-          {/* Agreement */}
-          <View>
-            <Card style={styles.agreementCard}>
-              <Text style={styles.cardTitle}>Agreement</Text>
 
-              <TextInput
-                label="Terms & Conditions"
-                value={formData.agreement}
-                onChangeText={text =>
-                  setFormData({ ...formData, agreement: text })
-                }
-                style={styles.agreementInput}
-                mode="outlined"
-                multiline
-                numberOfLines={6}
-              />
-            </Card>
-          </View>
 
           {/* Submit Button */}
           <View>
