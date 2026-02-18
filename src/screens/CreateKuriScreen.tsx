@@ -9,12 +9,14 @@ import {
 } from 'react-native';
 import { TextInput, Button, Switch, Chip, Card } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { addGroup, setLoading, setError } from '../store';
 import { kuriService } from '../services/kuriService';
 import { userService } from '../services/userService';
+import { AddMemberModal } from '../components/AddMemberModal';
 import { Group, Member } from '../types';
+import { RootState } from '../store';
 // Simple font definition for UI-only mode
 const Fonts = {
   regular: 'System',
@@ -40,6 +42,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
   route,
 }) => {
   const dispatch = useDispatch();
+  const { user } = useSelector((state: RootState) => state.app);
   const { mode, kuriId, kuriData } = route.params || {};
   const isEditMode = mode === 'edit';
 
@@ -62,6 +65,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -125,6 +129,41 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
 
   const removeMember = (indexToRemove: number) => {
     setMembers(members.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleAddMembers = async (
+    type: 'existing' | 'new',
+    data: { userIds?: string[]; names?: string[] },
+  ) => {
+    try {
+      if (type === 'existing' && data.userIds) {
+        // Fetch user details for existing users
+        const response = await userService.searchUsers('');
+        const allUsers = Array.isArray(response) ? response : response.data || [];
+        
+        const newMembers: MemberItem[] = data.userIds.map(userId => {
+          const user = allUsers.find((u: any) => u.id === userId);
+          return {
+            name: user?.name || 'Unknown',
+            id: userId,
+            type: 'existing',
+            uniqueCode: user?.uniqueCode,
+          };
+        });
+        
+        setMembers([...members, ...newMembers]);
+      } else if (type === 'new' && data.names) {
+        const newMembers: MemberItem[] = data.names.map(name => ({
+          name,
+          type: 'dummy',
+        }));
+        
+        setMembers([...members, ...newMembers]);
+      }
+    } catch (error) {
+      console.error('Failed to add members:', error);
+      throw error;
+    }
   };
 
   const handleRemoveMember = async (memberId: string) => {
@@ -407,54 +446,14 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
 
               {!isEditMode && (
                 <View>
-                  <View style={styles.addMemberContainer}>
-                    <View style={styles.searchContainer}>
-                      <TextInput
-                        label="Search or Add Member"
-                        value={searchQuery}
-                        onChangeText={handleSearch}
-                        style={styles.memberInput}
-                        mode="outlined"
-                        placeholder="Type name to search..."
-                        right={
-                          isSearching ? <TextInput.Icon icon="loading" /> : null
-                        }
-                      />
-                      {showResults && searchResults.length > 0 && (
-                        <ScrollView style={styles.searchResults} keyboardShouldPersistTaps="handled">
-                          {searchResults.map((user) => (
-                            <TouchableOpacity
-                              key={user.id}
-                              style={styles.searchResultItem}
-                              onPress={() => selectUser(user)}
-                            >
-                              <Text style={styles.resultName}>{user.name}</Text>
-                              <Text style={styles.resultCode}>{user.uniqueCode}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      )}
-                      {showResults && searchResults.length === 0 && searchQuery.length > 0 && (
-                        <View style={styles.searchResults}>
-                          <TouchableOpacity
-                            style={styles.searchResultItem}
-                            onPress={addDummyMember}
-                          >
-                            <Text style={styles.resultName}>Add "{searchQuery}" as new member</Text>
-                            <Text style={styles.resultCode}>User not found</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                    <Button
-                      mode="contained"
-                      onPress={addDummyMember}
-                      style={styles.addButton}
-                      disabled={!searchQuery.trim()}
-                    >
-                      Add
-                    </Button>
-                  </View>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setShowAddMemberModal(true)}
+                    style={styles.addMemberButton}
+                    icon="account-plus"
+                  >
+                    Add Members
+                  </Button>
 
                   <View style={styles.membersContainer}>
                     {members.map((member, index) => (
@@ -500,6 +499,17 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
             </Button>
           </View>
         </ScrollView>
+
+        {/* Add Member Modal */}
+        <AddMemberModal
+          visible={showAddMemberModal}
+          onClose={() => setShowAddMemberModal(false)}
+          onAddMember={handleAddMembers}
+          existingMemberIds={[
+            ...(user?.id ? [user.id] : []),
+            ...members.filter(m => m.id).map(m => m.id!)
+          ]}
+        />
       </View>
     </View>
   );
@@ -628,6 +638,10 @@ const styles = StyleSheet.create({
   },
   memberChip: {
     backgroundColor: '#ffffff',
+  },
+  addMemberButton: {
+    marginBottom: 16,
+    borderColor: '#2196F3',
   },
   shareButton: {
     borderColor: '#2196F3',

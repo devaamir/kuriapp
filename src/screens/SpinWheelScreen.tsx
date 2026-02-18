@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import EventSource from 'react-native-sse';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
 import { BackArrowIcon, SettingsIcon } from '../components/TabIcons';
@@ -52,7 +53,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
   route,
 }) => {
   const { groupId, members: paramMembers, currentMonth, winners: paramWinners, isAdmin: paramIsAdmin } = route.params;
-  const { groups } = useSelector((state: RootState) => state.app);
+  const { groups, user } = useSelector((state: RootState) => state.app);
   const group = groups.find(g => g.id === groupId);
 
   const [isSpinning, setIsSpinning] = useState(false);
@@ -63,6 +64,8 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
   const [showModal, setShowModal] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
   const eventSourceRef = useRef<EventSource | null>(null);
+  const confettiRef = useRef<any>(null);
+  const celebrationScale = useRef(new Animated.Value(0)).current;
 
   // Connect to SSE stream for non-admin users
   useEffect(() => {
@@ -170,6 +173,22 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
       setTimeout(() => {
         setWinner(winnerName);
         setIsSpinning(false);
+
+        // Check if current user is the winner
+        const winnerMember = membersSource.find((m: any) => m.name === winnerName);
+        if (winnerMember && user && winnerMember.id === user.id) {
+          // Trigger confetti for winner
+          confettiRef.current?.start();
+
+          // Animate celebration
+          celebrationScale.setValue(0);
+          Animated.spring(celebrationScale, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }).start();
+        }
       }, 1000);
     });
   };
@@ -239,6 +258,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
   const resetSpin = () => {
     setWinner(null);
     spinValue.setValue(0);
+    celebrationScale.setValue(0);
   };
 
   const handleConfirmWinner = async () => {
@@ -269,6 +289,24 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
       console.error('Failed to confirm winner:', error);
       Alert.alert('Error', error.message || 'Failed to confirm winner');
     }
+  };
+
+  const getRadialText = (angle: number, label: string) => {
+    const angleRad = (angle * Math.PI) / 180;
+
+    // start near center
+    const textRadius = RADIUS * 0.18;
+
+    const x = CENTER + textRadius * Math.cos(angleRad);
+    const y = CENTER + textRadius * Math.sin(angleRad);
+
+    // keep text upright
+    let rotation = angle;
+    if (angle > 90 && angle < 270) {
+      rotation = angle + 180;
+    }
+
+    return { x, y, rotation };
   };
 
   return (
@@ -361,6 +399,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
                     const midAngle = startAngle + anglePerSection / 2;
                     const textPos = getTextPosition(midAngle);
 
+
                     return (
                       <React.Fragment key={index}>
                         <Path
@@ -377,6 +416,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
                           fill="white"
                           textAnchor="middle"
                           alignmentBaseline="middle"
+                          transform={`rotate(${midAngle} ${textPos.x} ${textPos.y})`}
                         >
                           {name}
                         </SvgText>
@@ -396,12 +436,37 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
 
         {/* Winner Display */}
         {winner && (
-          <Card style={styles.winnerCard}>
-            <Text style={styles.winnerEmoji}>🎉</Text>
-            <Text style={styles.winnerText}>Congratulations!</Text>
-            <Text style={styles.winnerName}>{winner}</Text>
-            <Text style={styles.winnerSubtext}>You are the lucky winner!</Text>
-          </Card>
+          <>
+            {/* Check if current user is the winner */}
+            {(() => {
+              const winnerMember = membersSource.find((m: any) => m.name === winner);
+              const isCurrentUserWinner = winnerMember && user && winnerMember.id === user.id;
+
+              return isCurrentUserWinner ? (
+                // Winner UI - Current user won
+                <Animated.View style={{ transform: [{ scale: celebrationScale }] }}>
+                  <Card style={styles.winnerCard}>
+                    <Text style={styles.winnerEmoji}>🎉</Text>
+                    <Text style={styles.winnerText}>Congratulations!</Text>
+                    <Text style={styles.winnerName}>You are the Winner!</Text>
+                    <Text style={styles.winnerSubtext}>
+                      You've won ₹{(parseInt(group.monthlyAmount) * membersSource.length).toLocaleString()} this month!
+                    </Text>
+                  </Card>
+                </Animated.View>
+              ) : (
+                // Non-winner UI - Someone else won
+                <Card style={styles.nonWinnerCard}>
+                  <Text style={styles.nonWinnerEmoji}>🎯</Text>
+                  <Text style={styles.nonWinnerTitle}>Winner Announced!</Text>
+                  <Text style={styles.actualWinnerName}>{winner}</Text>
+                  <Text style={styles.nonWinnerMessage}>
+                    Better luck next time! Keep trying — your turn is coming soon!
+                  </Text>
+                </Card>
+              );
+            })()}
+          </>
         )}
 
         {/* Controls */}
@@ -446,6 +511,17 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
             : defaultParticipants
         }
         onSave={handleSaveParticipants}
+      />
+
+      {/* Confetti Cannon */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: width / 2, y: 0 }}
+        autoStart={false}
+        fadeOut={true}
+        explosionSpeed={350}
+        fallSpeed={2500}
       />
     </View>
   );
@@ -568,9 +644,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.xl,
     marginBottom: Spacing.lg,
+    backgroundColor: Colors.white,
+    borderWidth: 2,
+    borderColor: Colors.primary,
   },
   winnerEmoji: {
-    fontSize: 60,
+    fontSize: 80,
     marginBottom: Spacing.lg,
   },
   winnerText: {
@@ -579,14 +658,42 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   winnerName: {
-    ...Typography.h2,
+    ...Typography.h1,
     color: Colors.primary,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
   },
   winnerSubtext: {
     ...Typography.body1,
     color: Colors.textSecondary,
     textAlign: 'center',
+  },
+  nonWinnerCard: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.white,
+  },
+  nonWinnerEmoji: {
+    fontSize: 60,
+    marginBottom: Spacing.md,
+  },
+  nonWinnerTitle: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  actualWinnerName: {
+    ...Typography.h2,
+    color: Colors.primary,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  nonWinnerMessage: {
+    ...Typography.body1,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   controls: {
     marginBottom: Spacing.xl,
