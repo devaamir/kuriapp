@@ -225,9 +225,9 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
     const randomAngle = Math.random() * 360;
     const randomRotation = rotations * 360 + randomAngle;
 
-    // Calculate winner based on final angle (top pointer at 270 degrees)
+    // Calculate winner based on final angle (right pointer at 0 degrees)
     const anglePerSection = 360 / wheelNames.length;
-    const pointerAngle = (270 - randomAngle + 360) % 360; // Top position is at 270 degrees
+    const pointerAngle = (360 - randomAngle) % 360; // Right position is at 0 degrees
     const winnerIndex = Math.floor(pointerAngle / anglePerSection) % wheelNames.length;
     const winnerName = wheelNames[winnerIndex];
     const winnerMember = membersSource.find((m: any) => m.name === winnerName);
@@ -612,18 +612,18 @@ const styles = StyleSheet.create({
   },
   pointer: {
     position: 'absolute',
-    top: 0,
-    left: '50%',
-    marginLeft: -8,
+    right: -10,
+    top: '50%',
+    marginTop: -15,
     zIndex: 10,
-    transform: [{ rotate: '90deg' }],
+    transform: [{ rotate: '180deg' }],
   },
   triangle: {
     width: 0,
     height: 0,
     borderTopWidth: 15,
     borderBottomWidth: 15,
-    borderLeftWidth: 30,
+    borderLeftWidth: 35,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
     borderLeftColor: Colors.primary,
