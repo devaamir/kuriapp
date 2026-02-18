@@ -13,6 +13,8 @@ interface GroupCardProps {
   onPress: () => void;
   onPayNow?: () => void;
   onSpinNow?: () => void;
+  onViewSpinner?: () => void;
+  isAdmin?: boolean;
 }
 
 export const GroupCard: React.FC<GroupCardProps> = ({
@@ -20,6 +22,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   onPress,
   onPayNow,
   onSpinNow,
+  onViewSpinner,
+  isAdmin = false,
 }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -77,7 +81,14 @@ export const GroupCard: React.FC<GroupCardProps> = ({
       nextDraw.setMonth(nextDraw.getMonth() + 1);
     }
 
-    return nextDraw.toLocaleDateString('en-US', {
+    return nextDraw;
+  };
+
+  const nextDrawDate = getNextDrawDate();
+  const canSpin = new Date() >= nextDrawDate;
+
+  const formatDrawDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -144,7 +155,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
         {group.status === 'active' && (
           <View style={styles.nextDrawContainer}>
             <Text style={styles.nextDrawLabel}>Next Draw</Text>
-            <Text style={styles.nextDrawDate}>{getNextDrawDate()}</Text>
+            <Text style={styles.nextDrawDate}>{formatDrawDate(nextDrawDate)}</Text>
           </View>
         )}
 
@@ -162,7 +173,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
             )}
             {onSpinNow && (
               <Button
-                title="Spin Now"
+                title="View Spinner"
                 onPress={onSpinNow}
                 variant="outline"
                 size="small"

@@ -184,10 +184,10 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
       } else {
         // Create new Kuri
         const response = await kuriService.createKuri(kuriPayload);
-        console.log(response);
+        console.log(response.data.status);
 
 
-        if (response.success) {
+        if (response.status === 201) {
           // Add members if any
           if (members.length > 0) {
             for (const member of members) {
@@ -212,7 +212,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
             id: response.data.id,
             memberIds: [response.data.adminId, ...members.map(m => m.id || '')].filter(Boolean),
             monthlyAmount: formData.monthlyAmount,
-            name: response.data.name,
+            name: formData.groupName,
             startDate: formData.startDate || new Date().toISOString().split('T')[0],
             status: response.data.status as 'active' | 'pending' | 'completed',
             type: 'monthly', // Default type
@@ -238,6 +238,7 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
       const errorMessage =
         error.response?.data?.error || error.message || `Failed to ${isEditMode ? 'update' : 'create'} kuri`;
       dispatch(setError(errorMessage));
+      console.log(errorMessage);
       Alert.alert('Error', errorMessage);
     } finally {
       setLocalLoading(false);

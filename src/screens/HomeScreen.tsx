@@ -70,6 +70,55 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
+  const handleSpinNow = async (group: Group) => {
+    try {
+      const kuriData = await kuriService.getKuriDetails(group.id);
+
+      const members = kuriData.members.map(member => {
+        const memberPayments = (kuriData.payments || []).filter(
+          p => p.memberId === member.id,
+        );
+        const hasPaid = memberPayments.some(p => p.status === 'paid');
+
+        return {
+          id: member.id,
+          name: member.name,
+          uniqueCode: member.uniqueCode,
+          avatar: member.avatar,
+          role: member.role,
+          isDummy: false,
+          phone: '',
+          email: member.email,
+          hasPaid,
+          hasWon: false,
+          joinDate: new Date().toISOString().split('T')[0],
+        };
+      });
+
+      const getDurationMonths = (durationStr: string): number => {
+        const match = durationStr.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      };
+
+      const durationMonths = getDurationMonths(group.duration);
+      const start = new Date(group.startDate);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - start.getTime());
+      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+      const currentMonth = Math.min(diffMonths, durationMonths);
+
+      navigation.navigate('SpinWheel', {
+        groupId: group.id,
+        members: members,
+        currentMonth: currentMonth,
+        winners: kuriData.winners || [],
+        isAdmin: group.adminId === user?.id,
+      });
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to load group details');
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadKuris();
@@ -230,9 +279,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   navigation.navigate('GroupDetails', { groupId: group.id })
                 }
                 onPayNow={() => console.log('Pay now for', group.name)}
-                onSpinNow={() =>
-                  navigation.navigate('SpinWheel', { groupId: group.id })
-                }
+                onSpinNow={() => handleSpinNow(group)}
+                onViewSpinner={() => handleSpinNow(group)}
+                isAdmin={group.adminId === user?.id}
               />
             ))
           ) : (

@@ -107,7 +107,7 @@ export const kuriService = {
 
   async createKuri(kuriData: CreateKuriRequest): Promise<CreateKuriResponse> {
     const response = await api.post('/kuris', kuriData);
-    return response.data;
+    return response;
   },
 
   async updateKuri(
@@ -115,7 +115,7 @@ export const kuriService = {
     updates: UpdateKuriRequest,
   ): Promise<{ success: boolean; message: string }> {
     const response = await api.put(`/kuris/${kuriId}`, updates);
-    return response.data;
+    return response;
   },
 
   async updateMembers(

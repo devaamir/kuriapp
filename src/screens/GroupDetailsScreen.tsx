@@ -180,9 +180,9 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
     { key: 'all', label: 'All' },
     ...(isAdmin
       ? [
-          { key: 'paid', label: 'Paid' },
-          { key: 'unpaid', label: 'Unpaid' },
-        ]
+        { key: 'paid', label: 'Paid' },
+        { key: 'unpaid', label: 'Unpaid' },
+      ]
       : []),
     { key: 'winners', label: 'Winners' },
   ];
@@ -190,23 +190,23 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
   const filteredMembers = currentGroup
     ? memberFilter === 'winners'
       ? (currentGroup.winners || [])
-          .map(winner => {
-            const member = currentGroup.members.find(
-              m => m.id === winner.memberId,
-            );
-            return member ? { ...member, winnerMonth: winner.month } : null;
-          })
-          .filter(Boolean)
-      : (currentGroup.members || []).filter((member: Member) => {
-          switch (memberFilter) {
-            case 'paid':
-              return member.hasPaid;
-            case 'unpaid':
-              return !member.hasPaid;
-            default:
-              return true;
-          }
+        .map(winner => {
+          const member = currentGroup.members.find(
+            m => m.id === winner.memberId,
+          );
+          return member ? { ...member, winnerMonth: winner.month } : null;
         })
+        .filter(Boolean)
+      : (currentGroup.members || []).filter((member: Member) => {
+        switch (memberFilter) {
+          case 'paid':
+            return member.hasPaid;
+          case 'unpaid':
+            return !member.hasPaid;
+          default:
+            return true;
+        }
+      })
     : [];
 
   const renderCountdown = () => {
@@ -241,6 +241,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const canSpin = now >= nextDrawDate;
 
     return (
       <Card style={styles.countdownCard}>
@@ -249,10 +250,17 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
         <Button
           mode="contained"
           style={styles.spinButton}
-          onPress={() => navigation.navigate('SpinWheel', { groupId: groupId })}
+          onPress={() => navigation.navigate('SpinWheel', {
+            groupId: groupId,
+            members: currentGroup?.members,
+            currentMonth: currentMonth,
+            winners: currentGroup?.winners || [],
+            isAdmin: isAdmin,
+          })}
         >
-          Spin Now
+          View Spinner
         </Button>
+
       </Card>
     );
   };
@@ -430,12 +438,12 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
           </Text>
           <View style={styles.headerActions}>
             {isAdmin && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.iconButton}
-                onPress={() => navigation.navigate('CreateKuri', { 
-                  mode: 'edit', 
+                onPress={() => navigation.navigate('CreateKuri', {
+                  mode: 'edit',
                   kuriId: groupId,
-                  kuriData: currentGroup 
+                  kuriData: currentGroup
                 })}
               >
                 <Text style={styles.editIcon}>✏️</Text>

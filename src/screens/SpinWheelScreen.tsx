@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,11 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  Alert,
+  Platform,
 } from 'react-native';
 import { useSelector } from 'react-redux';
+import EventSource from 'react-native-sse';
 
 import Svg, { Path, Text as SvgText } from 'react-native-svg';
 import { BackArrowIcon, SettingsIcon } from '../components/TabIcons';
@@ -17,6 +20,8 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { ParticipantsModal } from '../components/ParticipantsModal';
 import { RootState } from '../store';
+import { kuriService } from '../services/kuriService';
+import { spinnerService } from '../services/spinnerService';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { Spacing, BorderRadius } from '../theme/spacing';
@@ -25,6 +30,12 @@ const { width } = Dimensions.get('window');
 const WHEEL_SIZE = width * 0.8;
 const RADIUS = WHEEL_SIZE / 2;
 const CENTER = RADIUS;
+
+const BASE_URL = Platform.select({
+  android: 'http://10.0.2.2:3001/api/v1',
+  ios: 'http://localhost:3001/api/v1',
+  default: 'http://localhost:3001/api/v1',
+});
 
 interface Participant {
   id: string;
@@ -40,7 +51,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { groupId } = route.params;
+  const { groupId, members: paramMembers, currentMonth, winners: paramWinners, isAdmin: paramIsAdmin } = route.params;
   const { groups } = useSelector((state: RootState) => state.app);
   const group = groups.find(g => g.id === groupId);
 
@@ -51,11 +62,76 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
   );
   const [showModal, setShowModal] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Connect to SSE stream for non-admin users
+  useEffect(() => {
+    if (!isAdmin) {
+      const connectSSE = () => {
+        console.log('[SSE] Connecting to stream:', `${BASE_URL}/spinner/stream/${groupId}`);
+
+        const eventSource = new EventSource(`${BASE_URL}/spinner/stream/${groupId}`);
+
+        eventSource.addEventListener('open', () => {
+          console.log('[SSE] Connected successfully');
+        });
+
+        eventSource.addEventListener('message', (event) => {
+          console.log('[SSE] Message received:', event.data);
+          try {
+            const { speed, rotates, easing, winner: winnerId } = JSON.parse(event.data);
+            const winnerMember = membersSource.find((m: any) => m.id === winnerId);
+
+            if (winnerMember) {
+              console.log('[SSE] Triggering spin - duration:', speed, 'randomRotation:', rotates, 'easing:', easing, 'winner:', winnerMember.name);
+              triggerSpin(speed, rotates, winnerMember.name);
+            }
+          } catch (error) {
+            console.error('[SSE] Failed to parse message:', error);
+          }
+        });
+
+        eventSource.addEventListener('error', (error) => {
+          console.error('[SSE] Connection error:', error);
+          eventSource.close();
+
+          // Reconnect after 3 seconds
+          console.log('[SSE] Reconnecting in 3 seconds...');
+          setTimeout(() => {
+            connectSSE();
+          }, 3000);
+        });
+
+        eventSourceRef.current = eventSource;
+      };
+
+      connectSSE();
+
+      return () => {
+        console.log('[SSE] Disconnecting');
+        eventSourceRef.current?.close();
+      };
+    }
+  }, [groupId, isAdmin, membersSource]);
 
   if (!group) return null;
 
-  const eligibleMembers = group.members.filter(m => m.hasPaid && !m.hasWon);
-  const defaultParticipants: Participant[] = eligibleMembers.map(m => ({
+  const isAdmin = paramIsAdmin;
+  // Use params members if available (has full details), otherwise fallback to group.members
+  const membersSource = paramMembers || [];
+
+  // Get winners from params
+  const winners = paramWinners || [];
+  const winnerIds = winners.map((w: any) => w.memberId);
+  console.log('winners', winners);
+  console.log('winnerIds', winnerIds);
+  console.log('membersSource', membersSource);
+
+
+  // Pending users are those who haven't won yet
+  const pendingMembers = membersSource.filter((m: any) => !winnerIds.includes(m.id));
+
+  const defaultParticipants: Participant[] = pendingMembers.map((m: any) => ({
     id: m.id,
     name: m.name,
   }));
@@ -78,6 +154,24 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
 
   const handleSaveParticipants = (participants: Participant[]) => {
     setCustomParticipants(participants);
+  };
+
+  const triggerSpin = (duration: number, randomRotation: number, winnerName: string) => {
+    if (isSpinning) return;
+
+    setIsSpinning(true);
+    setWinner(null);
+
+    Animated.timing(spinValue, {
+      toValue: randomRotation,
+      duration: duration,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        setWinner(winnerName);
+        setIsSpinning(false);
+      }, 1000);
+    });
   };
 
   const createWheelPath = (startAngle: number, endAngle: number) => {
@@ -103,40 +197,78 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
     };
   };
 
-  const spinWheel = () => {
+  const spinWheel = async () => {
     if (isSpinning || wheelNames.length === 0) return;
 
-    setIsSpinning(true);
-    setWinner(null);
+    // Generate exact spin parameters
+    const duration = Math.floor(Math.random() * 7000) + 3000; // 3000-10000ms
+    const rotations = Math.floor(Math.random() * 3) + 5; // 5-7 rotations
+    const randomAngle = Math.random() * 360;
+    const randomRotation = rotations * 360 + randomAngle;
 
-    const minDuration = 3000; // 3 seconds
-    const maxDuration = 10000; // 10 seconds
+    // Calculate winner based on final angle (top pointer at 270 degrees)
+    const anglePerSection = 360 / wheelNames.length;
+    const pointerAngle = (270 - randomAngle + 360) % 360; // Top position is at 270 degrees
+    const winnerIndex = Math.floor(pointerAngle / anglePerSection) % wheelNames.length;
+    const winnerName = wheelNames[winnerIndex];
+    const winnerMember = membersSource.find((m: any) => m.name === winnerName);
 
-    const duration = Math.random() * (maxDuration - minDuration) + minDuration; // Random 3–10s
+    if (!winnerMember) return;
 
-    const rotationsPerSecond = 1.5; // adjust this value for speed feel
-    const randomRotation = (duration / 1000) * rotationsPerSecond * 360;
+    console.log('[Admin] Sending spin - duration:', duration, 'randomRotation:', randomRotation, 'winner:', winnerMember.id);
 
-    Animated.timing(spinValue, {
-      toValue: randomRotation,
-      duration: duration,
-      useNativeDriver: true,
-    }).start(() => {
-      const normalizedRotation = randomRotation % 360;
-      const pointerAngle = (360 - normalizedRotation + 0) % 360;
-      const anglePerSection = 360 / wheelNames.length;
-      const winnerIndex = Math.floor(pointerAngle / anglePerSection);
+    // Send exact spin data to backend
+    try {
+      await spinnerService.sendSpin(groupId, {
+        easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        speed: duration,
+        rotates: randomRotation,
+        winner: winnerMember.id,
+        adminId: group.adminId,
+      });
+    } catch (error) {
+      console.error('Failed to broadcast spin:', error);
+      Alert.alert('Error', 'Failed to broadcast spin');
+      return;
+    }
 
-      setTimeout(() => {
-        setWinner(wheelNames[winnerIndex]);
-        setIsSpinning(false);
-      }, 1000);
-    });
+    // Trigger local animation with same exact parameters
+    triggerSpin(duration, randomRotation, winnerName);
   };
 
   const resetSpin = () => {
     setWinner(null);
     spinValue.setValue(0);
+  };
+
+  const handleConfirmWinner = async () => {
+    if (!winner || !group) return;
+
+    const winnerMember = membersSource.find((m: any) => m.name === winner);
+    if (!winnerMember) {
+      Alert.alert('Error', 'Winner not found in member list');
+      return;
+    }
+
+    try {
+      const existingWinners = group.winners || [];
+      const newWinners = [
+        ...existingWinners,
+        { month: currentMonth, memberId: winnerMember.id },
+      ];
+
+      await kuriService.updateWinners(groupId, newWinners);
+
+      Alert.alert('Success', `Winner ${winner} confirmed for month ${currentMonth}!`, [
+        {
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (error: any) {
+      console.error('Failed to confirm winner:', error);
+      Alert.alert('Error', error.message || 'Failed to confirm winner');
+    }
   };
 
   return (
@@ -166,12 +298,12 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
 
         {/* Prize Card */}
         <Card style={styles.prizeCard}>
-          <Text style={styles.prizeLabel}>Prize Amount</Text>
+          <Text style={styles.prizeLabel}>Total Amount</Text>
           <Text style={styles.prizeAmount}>
-            ₹{(group.amount * group.members.length).toLocaleString()}
+            ₹{(parseInt(group.monthlyAmount) * membersSource.length).toLocaleString()}
           </Text>
           <Text style={styles.participantsCount}>
-            {wheelNames.length} participants
+            {membersSource.length} Total Participants
           </Text>
         </Card>
       </View>
@@ -182,6 +314,22 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
         showsVerticalScrollIndicator={false}
         scrollEnabled={!winner}
       >
+        {/* Pending Users List
+        <Card style={styles.pendingCard}>
+          <Text style={styles.pendingTitle}>Pending Users ({pendingMembers.length})</Text>
+          <View style={styles.pendingList}>
+            {pendingMembers.map((member: any, index: number) => (
+              <View key={member.id} style={styles.pendingItem}>
+                <View style={styles.pendingAvatar}>
+                  <Text style={styles.pendingAvatarText}>
+                    {member.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.pendingName}>{member.name}</Text>
+              </View>
+            ))}
+          </View>
+        </Card> */}
         {/* Wheel Container */}
         {!winner && (
           <Card style={styles.wheelCard}>
@@ -257,33 +405,35 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
         )}
 
         {/* Controls */}
-        <View style={styles.controls}>
-          {!winner ? (
-            <Button
-              title={isSpinning ? 'Spinning...' : 'Spin Now!'}
-              onPress={spinWheel}
-              disabled={isSpinning || wheelNames.length === 0}
-              style={styles.spinButton}
-              size="large"
-            />
-          ) : (
-            <View style={styles.winnerActions}>
+        {isAdmin && (
+          <View style={styles.controls}>
+            {!winner ? (
               <Button
-                title="Spin Again"
-                onPress={resetSpin}
-                variant="outline"
-                style={styles.actionButton}
-                size="small"
+                title={isSpinning ? 'Spinning...' : 'Spin Now!'}
+                onPress={spinWheel}
+                disabled={isSpinning || wheelNames.length === 0}
+                style={styles.spinButton}
+                size="large"
               />
-              <Button
-                title="Confirm Winner"
-                onPress={() => navigation.goBack()}
-                style={styles.actionButton}
-                size="small"
-              />
-            </View>
-          )}
-        </View>
+            ) : (
+              <View style={styles.winnerActions}>
+                <Button
+                  title="Spin Again"
+                  onPress={resetSpin}
+                  variant="outline"
+                  style={styles.actionButton}
+                  size="small"
+                />
+                <Button
+                  title="Confirm Winner"
+                  onPress={handleConfirmWinner}
+                  style={styles.actionButton}
+                  size="small"
+                />
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Participants Modal */}
@@ -386,11 +536,11 @@ const styles = StyleSheet.create({
   },
   pointer: {
     position: 'absolute',
-    right: 0,
-    top: '50%',
-    marginTop: -15,
+    top: 0,
+    left: '50%',
+    marginLeft: -8,
     zIndex: 10,
-    transform: [{ rotate: '180deg' }],
+    transform: [{ rotate: '90deg' }],
   },
   triangle: {
     width: 0,
@@ -406,6 +556,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
+  },
+  wheelText: {
+    // color: Colors.white,
+    // fontSize: 14,
+    // fontWeight: 'bold',
+    // textAlign: 'left'
+    // width: 50,
   },
   winnerCard: {
     alignItems: 'center',
@@ -443,5 +600,41 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  pendingCard: {
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  pendingTitle: {
+    ...Typography.h4,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  pendingList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+  },
+  pendingItem: {
+    alignItems: 'center',
+    width: (width - Spacing.lg * 2 - Spacing.md * 3) / 4,
+  },
+  pendingAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xs,
+  },
+  pendingAvatarText: {
+    ...Typography.h4,
+    color: Colors.white,
+  },
+  pendingName: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });

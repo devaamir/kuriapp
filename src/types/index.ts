@@ -10,6 +10,10 @@ export interface Group {
   startDate: string;
   status: string;
   type: string;
+  winners?: {
+    memberId: string;
+    month: number;
+  }[];
 }
 
 export interface Member {
@@ -30,12 +34,12 @@ export interface Member {
 export interface Notification {
   id: string;
   type:
-    | 'payment_due'
-    | 'payment_paid'
-    | 'spin_reminder'
-    | 'draw_result'
-    | 'group_invite'
-    | 'agreement_pending';
+  | 'payment_due'
+  | 'payment_paid'
+  | 'spin_reminder'
+  | 'draw_result'
+  | 'group_invite'
+  | 'agreement_pending';
   title: string;
   message: string;
   date: string;
