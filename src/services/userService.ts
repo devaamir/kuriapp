@@ -17,6 +17,20 @@ export interface SearchUserResponse {
   };
 }
 
+export interface CreateUserRequest {
+  name: string;
+  email: string;
+  role: 'member';
+  isDummy?: boolean;
+}
+
+export interface CreateUserResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export const userService = {
   async searchUserByCode(code: string): Promise<SearchUserResponse> {
     const response = await api.get('/users/search', {
@@ -47,5 +61,10 @@ export const userService = {
       console.error('Error fetching users:', error);
       return { success: false, data: [] };
     }
+  },
+
+  async createUser(userData: CreateUserRequest): Promise<CreateUserResponse> {
+    const response = await api.post('/users', userData);
+    return response.data;
   }
 };

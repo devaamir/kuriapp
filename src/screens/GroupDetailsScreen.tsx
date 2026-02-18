@@ -16,7 +16,9 @@ import { BackArrowIcon, NotificationIcon } from '../components/TabIcons';
 import { RootState } from '../store';
 import { updateGroup, setLoading, setError } from '../store';
 import { kuriService } from '../services/kuriService';
+import { userService } from '../services/userService';
 import { Card } from '../components/Card';
+import { AddMemberModal } from '../components/AddMemberModal';
 import { Group, Member } from '../types';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
@@ -49,6 +51,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
   const [activeTab, setActiveTab] = useState('summary');
   const [memberFilter, setMemberFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   const loadGroupDetails = async () => {
     try {
@@ -120,6 +123,57 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
     setRefreshing(true);
     await loadGroupDetails();
     setRefreshing(false);
+  };
+
+  const handleAddMember = async (
+    type: 'existing' | 'new',
+    data: { userIds?: string[]; names?: string[] },
+  ) => {
+    try {
+      const userIdsToAdd: string[] = [];
+
+      if (type === 'existing' && data.userIds) {
+        // Add existing users directly
+        userIdsToAdd.push(...data.userIds);
+      } else if (type === 'new' && data.names) {
+        // Create new users first
+        for (const name of data.names) {
+          const newUser = await userService.createUser({
+            name,
+            email: `${name.toLowerCase().replace(/\s+/g, '')}@dummy.local`,
+            role: 'member',
+            isDummy: true,
+          });
+          userIdsToAdd.push(newUser.id);
+        }
+      }
+
+      if (userIdsToAdd.length === 0) {
+        throw new Error('No users to add');
+      }
+
+      // Add all users to kuri by updating memberIds
+      const currentMemberIds = currentGroup?.members.map(m => m.id) || [];
+      await kuriService.updateMembers(groupId, [...currentMemberIds, ...userIdsToAdd]);
+
+      Alert.alert('Success', `${userIdsToAdd.length} member${userIdsToAdd.length > 1 ? 's' : ''} added successfully`);
+      await loadGroupDetails(); // Refresh member list
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to add member';
+      Alert.alert('Error', errorMessage);
+      throw error;
+    }
+  };
+
+  const handleFABPress = () => {
+    if (!isAdmin) {
+      Alert.alert('Access Denied', 'Only admins can add members');
+      return;
+    }
+    setShowAddMemberModal(true);
   };
 
   useEffect(() => {
@@ -496,7 +550,15 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
         <FAB
           icon={() => <Text style={styles.fabIcon}>👥</Text>}
           style={styles.fab}
-          onPress={() => console.log('Add member')}
+          onPress={handleFABPress}
+        />
+
+        {/* Add Member Modal */}
+        <AddMemberModal
+          visible={showAddMemberModal}
+          onClose={() => setShowAddMemberModal(false)}
+          onAddMember={handleAddMember}
+          existingMemberIds={currentGroup?.members.map(m => m.id) || []}
         />
       </View>
     </View>
