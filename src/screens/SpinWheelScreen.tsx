@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import EventSource from 'react-native-sse';
@@ -26,6 +27,7 @@ import { spinnerService } from '../services/spinnerService';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { Spacing, BorderRadius } from '../theme/spacing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const WHEEL_SIZE = width * 0.8;
@@ -62,10 +64,48 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
     [],
   );
   const [showModal, setShowModal] = useState(false);
+  const [showNominationModal, setShowNominationModal] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
   const eventSourceRef = useRef<EventSource | null>(null);
   const confettiRef = useRef<any>(null);
   const celebrationScale = useRef(new Animated.Value(0)).current;
+
+  // Check if current date is on or after draw date
+  const canSpinNow = () => {
+    if (!group?.startDate) return false;
+
+    const now = new Date();
+    const startDate = new Date(group.startDate);
+    const drawDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      startDate.getDate(),
+    );
+
+    return now >= drawDate;
+  };
+
+  const getNextDrawDate = () => {
+    if (!group?.startDate) return '';
+
+    const now = new Date();
+    const startDate = new Date(group.startDate);
+    const drawDate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      startDate.getDate(),
+    );
+
+    if (now >= drawDate) {
+      drawDate.setMonth(drawDate.getMonth() + 1);
+    }
+
+    return drawDate.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
 
   // Connect to SSE stream for non-admin users
   useEffect(() => {
@@ -130,6 +170,9 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
   console.log('winnerIds', winnerIds);
   console.log('membersSource', membersSource);
 
+  // Check if current user is the winner for current month
+  const currentMonthWinner = winners.find((w: any) => w.month === currentMonth);
+  const isCurrentWinner = currentMonthWinner && user && currentMonthWinner.memberId === user.id;
 
   // Pending users are those who haven't won yet
   const pendingMembers = membersSource.filter((m: any) => !winnerIds.includes(m.id));
@@ -170,7 +213,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
       duration: duration,
       useNativeDriver: true,
     }).start(() => {
-      setTimeout(() => {
+      setTimeout(async () => {
         setWinner(winnerName);
         setIsSpinning(false);
 
@@ -188,6 +231,21 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
             friction: 7,
             useNativeDriver: true,
           }).start();
+        }
+
+        // Auto-confirm winner in background (admin only)
+        if (isAdmin && winnerMember) {
+          const existingWinners = group.winners || [];
+          const newWinners = [
+            ...existingWinners,
+            { month: currentMonth, memberId: winnerMember.id },
+          ];
+          try {
+            await kuriService.updateWinners(groupId, newWinners);
+            console.log('Winner confirmed successfully');
+          } catch (error: any) {
+            console.error('Failed to confirm winner:', error);
+          }
         }
       }, 1000);
     });
@@ -255,39 +313,19 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
     triggerSpin(duration, randomRotation, winnerName);
   };
 
-  const resetSpin = () => {
-    setWinner(null);
-    spinValue.setValue(0);
-    celebrationScale.setValue(0);
-  };
-
-  const handleConfirmWinner = async () => {
-    if (!winner || !group) return;
-
-    const winnerMember = membersSource.find((m: any) => m.name === winner);
-    if (!winnerMember) {
-      Alert.alert('Error', 'Winner not found in member list');
-      return;
-    }
+  const handleNominateWinner = async (nominatedMemberId: string) => {
+    const token = await AsyncStorage.getItem('authToken');
+    console.log('Token:', token);
 
     try {
-      const existingWinners = group.winners || [];
-      const newWinners = [
-        ...existingWinners,
-        { month: currentMonth, memberId: winnerMember.id },
-      ];
-
-      await kuriService.updateWinners(groupId, newWinners);
-
-      Alert.alert('Success', `Winner ${winner} confirmed for month ${currentMonth}!`, [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      console.log('Nominating winner:', { groupId, currentMonth, nominatedMemberId });
+      await kuriService.nominateWinner(groupId, currentMonth, nominatedMemberId);
+      Alert.alert('Success', 'Winner nomination submitted for admin approval');
+      setShowNominationModal(false);
     } catch (error: any) {
-      console.error('Failed to confirm winner:', error);
-      Alert.alert('Error', error.message || 'Failed to confirm winner');
+      console.error('Failed to nominate winner:', error);
+      console.error('Error response:', error.response?.data);
+      Alert.alert('Error', error.response?.data?.message || error.message || 'Failed to nominate winner');
     }
   };
 
@@ -325,6 +363,7 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Spin Wheel</Text>
             <Text style={styles.headerSubtitle}>{group.name}</Text>
+            <Text style={styles.nextDrawText}>Next Draw: {getNextDrawDate()}</Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowModal(true)}
@@ -470,35 +509,42 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
         )}
 
         {/* Controls */}
-        {isAdmin && (
-          <View style={styles.controls}>
-            {!winner ? (
+        <View style={styles.controls}>
+          {!winner ? (
+            isAdmin && (
               <Button
                 title={isSpinning ? 'Spinning...' : 'Spin Now!'}
                 onPress={spinWheel}
-                disabled={isSpinning || wheelNames.length === 0}
+                disabled={isSpinning || wheelNames.length === 0 || !canSpinNow()}
                 style={styles.spinButton}
                 size="large"
               />
-            ) : (
-              <View style={styles.winnerActions}>
-                <Button
-                  title="Spin Again"
-                  onPress={resetSpin}
-                  variant="outline"
-                  style={styles.actionButton}
-                  size="small"
-                />
-                <Button
-                  title="Confirm Winner"
-                  onPress={handleConfirmWinner}
-                  style={styles.actionButton}
-                  size="small"
-                />
-              </View>
-            )}
-          </View>
-        )}
+            )
+          ) : (
+            <>
+              {(() => {
+                const winnerMember = membersSource.find((m: any) => m.name === winner);
+                const isDrawWinner = winnerMember && user && winnerMember.id === user.id;
+
+                return isDrawWinner && (
+                  <Button
+                    title="Nominate Winner"
+                    onPress={() => setShowNominationModal(true)}
+                    variant="outline"
+                    style={styles.spinButton}
+                    size="large"
+                  />
+                );
+              })()}
+              <Button
+                title="Back to Home"
+                onPress={() => navigation.goBack()}
+                style={styles.spinButton}
+                size="large"
+              />
+            </>
+          )}
+        </View>
       </ScrollView>
 
       {/* Participants Modal */}
@@ -512,6 +558,42 @@ export const SpinWheelScreen: React.FC<SpinWheelScreenProps> = ({
         }
         onSave={handleSaveParticipants}
       />
+
+      {/* Nomination Modal */}
+      <Modal
+        visible={showNominationModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNominationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Winner to Nominate</Text>
+            <ScrollView style={styles.membersList}>
+              {pendingMembers.map((member: any) => (
+                <TouchableOpacity
+                  key={member.id}
+                  style={styles.memberItem}
+                  onPress={() => handleNominateWinner(member.id)}
+                >
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberAvatarText}>
+                      {member.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Button
+              title="Cancel"
+              onPress={() => setShowNominationModal(false)}
+              variant="outline"
+              style={styles.cancelButton}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* Confetti Cannon */}
       <ConfettiCannon
@@ -560,6 +642,11 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     ...Typography.body1,
     color: Colors.primaryLight,
+  },
+  nextDrawText: {
+    ...Typography.caption,
+    color: Colors.primaryLight,
+    marginTop: Spacing.xs,
   },
   settingsButton: {
     padding: Spacing.sm,
@@ -743,5 +830,56 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.textSecondary,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: '85%',
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.lg,
+    textAlign: 'center',
+  },
+  membersList: {
+    maxHeight: 400,
+  },
+  memberItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.gray50,
+    marginBottom: Spacing.sm,
+  },
+  memberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  memberAvatarText: {
+    ...Typography.body1,
+    color: Colors.white,
+    fontWeight: 'bold',
+  },
+  memberName: {
+    ...Typography.body1,
+    color: Colors.textPrimary,
+  },
+  cancelButton: {
+    marginTop: Spacing.lg,
   },
 });

@@ -142,6 +142,18 @@ export const kuriService = {
     return response.data;
   },
 
+  async nominateWinner(
+    kuriId: string,
+    month: number,
+    nominatedMemberId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/kuris/${kuriId}/nominate-winner`, {
+      month,
+      nominatedMemberId,
+    });
+    return response.data;
+  },
+
   async deleteKuri(
     kuriId: string,
   ): Promise<{ success: boolean; message: string }> {
