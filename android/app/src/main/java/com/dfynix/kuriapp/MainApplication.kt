@@ -1,4 +1,4 @@
-package com.kuriapp
+package com.dfynix.kuriapp
 
 import android.app.Application
 import com.facebook.react.PackageList
