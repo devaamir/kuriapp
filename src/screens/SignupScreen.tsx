@@ -10,6 +10,8 @@ import { TextInput, Button } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import { authService } from '../services/authService';
 import { setUser, setLoading, setError } from '../store';
+import EyeOpenIcon from '../assets/icons/eye-open-icon.svg';
+import EyeClosedIcon from '../assets/icons/eye-closed-icon.svg';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -24,6 +26,8 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLocalLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const dispatch = useDispatch();
 
   const handleSignup = async () => {
@@ -101,8 +105,20 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
         onChangeText={setPassword}
         style={styles.input}
         mode="outlined"
-        secureTextEntry
+        secureTextEntry={!showPassword}
         disabled={loading}
+        right={
+          <TextInput.Icon
+            icon={() =>
+              showPassword ? (
+                <EyeOpenIcon width={22} height={22} />
+              ) : (
+                <EyeClosedIcon width={22} height={22} />
+              )
+            }
+            onPress={() => setShowPassword(prev => !prev)}
+          />
+        }
       />
 
       <TextInput
@@ -111,8 +127,20 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
         onChangeText={setConfirmPassword}
         style={styles.input}
         mode="outlined"
-        secureTextEntry
+        secureTextEntry={!showConfirmPassword}
         disabled={loading}
+        right={
+          <TextInput.Icon
+            icon={() =>
+              showConfirmPassword ? (
+                <EyeOpenIcon width={22} height={22} />
+              ) : (
+                <EyeClosedIcon width={22} height={22} />
+              )
+            }
+            onPress={() => setShowConfirmPassword(prev => !prev)}
+          />
+        }
       />
 
       <Button

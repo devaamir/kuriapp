@@ -3,11 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Platform } from 'react-native';
 
-const BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:3001/api/v1',
-  ios: 'http://localhost:3001/api/v1',
-  default: 'http://localhost:3001/api/v1',
-});
+// const BASE_URL = Platform.select({
+//   android: 'http://10.0.2.2:3001/api/v1',
+//   ios: 'http://localhost:3001/api/v1',
+//   default: 'http://localhost:3001/api/v1',
+// });
+
+const BASE_URL = 'https://kuriapp-backend-admin.onrender.com/api/v1'
 
 const api = axios.create({
   baseURL: BASE_URL,

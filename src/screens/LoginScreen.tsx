@@ -10,6 +10,8 @@ import { TextInput, Button } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import { authService } from '../services/authService';
 import { setUser, setLoading, setError } from '../store';
+import EyeOpenIcon from '../assets/icons/eye-open-icon.svg';
+import EyeClosedIcon from '../assets/icons/eye-closed-icon.svg';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -22,6 +24,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLocalLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
 
   const handleLogin = async () => {
@@ -84,8 +87,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         onChangeText={setPassword}
         style={styles.input}
         mode="outlined"
-        secureTextEntry
+        secureTextEntry={!showPassword}
         disabled={loading}
+        right={
+          <TextInput.Icon
+            icon={() =>
+              showPassword ? (
+                <EyeOpenIcon width={22} height={22} />
+              ) : (
+                <EyeClosedIcon width={22} height={22} />
+              )
+            }
+            onPress={() => setShowPassword(prev => !prev)}
+          />
+        }
       />
 
       <Button
