@@ -44,10 +44,13 @@ export interface KuriDetailsResponse {
 export interface CreateKuriRequest {
   name: string;
   monthlyAmount: number;
-  description: string;
-  duration: string;
-  startDate: string;
-  joinAsMember: boolean;
+  description?: string;
+  duration?: string;
+  startDate?: string;
+  kuriTakenDate?: string;
+  memberIds?: string[];
+  status?: 'pending' | 'active' | 'completed';
+  type?: 'new' | 'existing';
 }
 
 export interface CreateKuriResponse {
@@ -154,6 +157,13 @@ export const kuriService = {
     memberData: AddMemberRequest,
   ): Promise<AddMemberResponse> {
     const response = await api.post(`/kuris/${kuriId}/members`, memberData);
+    return response.data;
+  },
+
+  async joinKuri(
+    inviteCode: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await api.post('/kuris/join', { inviteCode });
     return response.data;
   },
 };

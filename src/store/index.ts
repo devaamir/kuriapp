@@ -44,7 +44,7 @@ const appSlice = createSlice({
       state.isAuthenticated = false;
       state.groups = [];
       state.notifications = [];
-      AsyncStorage.removeItem('authToken');
+      AsyncStorage.multiRemove(['authToken', 'refreshToken', 'userData']);
     },
     setAuthState: (state, action: PayloadAction<boolean>) => {
       state.isAuthenticated = action.payload;

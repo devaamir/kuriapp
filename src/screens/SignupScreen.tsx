@@ -5,6 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
@@ -75,103 +78,115 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.subtitle}>Join us today</Text>
-
-      <TextInput
-        label="Full Name"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-        mode="outlined"
-        disabled={loading}
-      />
-
-      <TextInput
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        mode="outlined"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        disabled={loading}
-      />
-
-      <TextInput
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        mode="outlined"
-        secureTextEntry={!showPassword}
-        disabled={loading}
-        right={
-          <TextInput.Icon
-            icon={() =>
-              showPassword ? (
-                <EyeOpenIcon width={22} height={22} />
-              ) : (
-                <EyeClosedIcon width={22} height={22} />
-              )
-            }
-            onPress={() => setShowPassword(prev => !prev)}
-          />
-        }
-      />
-
-      <TextInput
-        label="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        style={styles.input}
-        mode="outlined"
-        secureTextEntry={!showConfirmPassword}
-        disabled={loading}
-        right={
-          <TextInput.Icon
-            icon={() =>
-              showConfirmPassword ? (
-                <EyeOpenIcon width={22} height={22} />
-              ) : (
-                <EyeClosedIcon width={22} height={22} />
-              )
-            }
-            onPress={() => setShowConfirmPassword(prev => !prev)}
-          />
-        }
-      />
-
-      <Button
-        mode="contained"
-        onPress={handleSignup}
-        style={styles.button}
-        loading={loading}
-        disabled={loading}
+    <KeyboardAvoidingView
+      style={styles.keyboardAvoidingView}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {loading ? 'Creating Account...' : 'Sign Up'}
-      </Button>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Join us today</Text>
 
-      <TouchableOpacity
-        onPress={() => navigation.navigate('Login')}
-        style={styles.linkContainer}
-        disabled={loading}
-      >
-        <Text style={styles.linkText}>
-          Already have an account? Login
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TextInput
+          label="Full Name"
+          value={name}
+          onChangeText={setName}
+          style={styles.input}
+          mode="outlined"
+          disabled={loading}
+        />
+
+        <TextInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          mode="outlined"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          disabled={loading}
+        />
+
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+          mode="outlined"
+          secureTextEntry={!showPassword}
+          disabled={loading}
+          right={
+            <TextInput.Icon
+              icon={() =>
+                showPassword ? (
+                  <EyeOpenIcon width={22} height={22} />
+                ) : (
+                  <EyeClosedIcon width={22} height={22} />
+                )
+              }
+              onPress={() => setShowPassword(prev => !prev)}
+            />
+          }
+        />
+
+        <TextInput
+          label="Confirm Password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          style={styles.input}
+          mode="outlined"
+          secureTextEntry={!showConfirmPassword}
+          disabled={loading}
+          right={
+            <TextInput.Icon
+              icon={() =>
+                showConfirmPassword ? (
+                  <EyeOpenIcon width={22} height={22} />
+                ) : (
+                  <EyeClosedIcon width={22} height={22} />
+                )
+              }
+              onPress={() => setShowConfirmPassword(prev => !prev)}
+            />
+          }
+        />
+
+        <Button
+          mode="contained"
+          onPress={handleSignup}
+          style={styles.button}
+          loading={loading}
+          disabled={loading}
+        >
+          {loading ? 'Creating Account...' : 'Sign Up'}
+        </Button>
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Login')}
+          style={styles.linkContainer}
+          disabled={loading}
+        >
+          <Text style={styles.linkText}>
+            Already have an account? Login
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardAvoidingView: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  container: {
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
-    backgroundColor: '#F8F9FA',
   },
   title: {
     fontSize: 28,

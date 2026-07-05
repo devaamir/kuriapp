@@ -12,7 +12,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { addGroup, setLoading, setError } from '../store';
-import { kuriService } from '../services/kuriService';
+import { kuriService, CreateKuriRequest } from '../services/kuriService';
 import { userService } from '../services/userService';
 import { AddMemberModal } from '../components/AddMemberModal';
 import { Group, Member } from '../types';
@@ -47,7 +47,6 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
   const isEditMode = mode === 'edit';
 
   const [isNewKuri, setIsNewKuri] = useState(true);
-  const [joinAsMember, setJoinAsMember] = useState(true);
   const [loading, setLocalLoading] = useState(false);
   const [formData, setFormData] = useState({
     groupName: kuriData?.name || '',
@@ -55,8 +54,6 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
     duration: kuriData?.duration?.replace(' Months', '') || '',
     startDate: kuriData?.startDate || '',
     description: kuriData?.description || '',
-    agreement:
-      'Monthly contribution as agreed. Draw will be conducted on the specified date each month. Winner receives the full collected amount.',
   });
 
   const [members, setMembers] = useState<MemberItem[]>([]);
@@ -66,6 +63,104 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
   const [showResults, setShowResults] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [existingFormData, setExistingFormData] = useState({
+    groupName: '',
+    monthlyAmount: '',
+    duration: '',
+    startDate: '',
+    kuriTakenDate: '',
+    description: '',
+  });
+  const [showExistingDatePicker, setShowExistingDatePicker] = useState(false);
+  const [showKuriTakenDatePicker, setShowKuriTakenDatePicker] = useState(false);
+  const [existingMembers, setExistingMembers] = useState<MemberItem[]>([]);
+  const [showExistingAddMemberModal, setShowExistingAddMemberModal] = useState(false);
+
+  const onExistingDateChange = (event: any, selectedDate?: Date) => {
+    setShowExistingDatePicker(false);
+    if (selectedDate) {
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      setExistingFormData({ ...existingFormData, startDate: formattedDate });
+    }
+  };
+
+  const handleSubmitExisting = async () => {
+    if (
+      !existingFormData.groupName ||
+      !existingFormData.monthlyAmount ||
+      !existingFormData.duration
+    ) {
+      Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+    setLocalLoading(true);
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+    try {
+      const existingMemberIds = existingMembers
+        .filter(m => m.type === 'existing' && m.id)
+        .map(m => m.id!);
+
+      const kuriPayload: CreateKuriRequest = {
+        name: existingFormData.groupName,
+        monthlyAmount: parseInt(existingFormData.monthlyAmount),
+        description: existingFormData.description ||
+          'Monthly contribution as agreed. Draw conducted on the specified date each month.',
+        duration: `${existingFormData.duration} Months`,
+        startDate: existingFormData.startDate || new Date().toISOString().split('T')[0],
+        kuriTakenDate: existingFormData.kuriTakenDate || undefined,
+        memberIds: existingMemberIds.length > 0 ? existingMemberIds : undefined,
+        status: 'active',
+        type: 'existing',
+      };
+
+      const response = await kuriService.createKuri(kuriPayload);
+
+      if (response.status === 201) {
+        const newKuriId = response.data?.id;
+
+        // Add dummy (offline) members separately
+        const dummyMembers = existingMembers.filter(m => m.type === 'dummy');
+        for (const member of dummyMembers) {
+          try {
+            await kuriService.addMember(newKuriId, { type: 'dummy', name: member.name });
+          } catch (err) {
+            console.error(`Failed to add dummy member ${member.name}`, err);
+          }
+        }
+
+        const newGroup: Group = {
+          adminId: response.data.adminId,
+          createdBy: response.data.adminId,
+          description: kuriPayload.description!,
+          duration: kuriPayload.duration!,
+          id: newKuriId,
+          memberIds: [response.data.adminId, ...existingMemberIds],
+          monthlyAmount: existingFormData.monthlyAmount,
+          name: existingFormData.groupName,
+          startDate: kuriPayload.startDate!,
+          status: 'active',
+          type: 'monthly',
+        };
+        dispatch(addGroup(newGroup));
+
+        Alert.alert(
+          '✅ Kuri Recorded!',
+          `"${existingFormData.groupName}" has been added to your account.\n\n` +
+          `💰 Monthly Amount: ₹${existingFormData.monthlyAmount}\n` +
+          `📅 Duration: ${existingFormData.duration} Months`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+      }
+    } catch (error: any) {
+      const msg = error.response?.data?.error || error.message || 'Failed to record existing kuri';
+      dispatch(setError(msg));
+      Alert.alert('Error', msg);
+    } finally {
+      setLocalLoading(false);
+      dispatch(setLoading(false));
+    }
+  };
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -201,75 +296,68 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
     dispatch(setError(null));
 
     try {
-      const kuriPayload = {
+      const kuriPayload: any = {
         name: formData.groupName,
         monthlyAmount: parseInt(formData.monthlyAmount),
-        description: formData.description || formData.agreement,
+        description: formData.description,
         duration: `${formData.duration} Months`,
         startDate: formData.startDate || new Date().toISOString().split('T')[0],
-        joinAsMember: joinAsMember,
+        type: 'new',
       };
 
       if (isEditMode && kuriId) {
         // Update existing Kuri
-        const response = await kuriService.updateKuri(kuriId, kuriPayload);
+        await kuriService.updateKuri(kuriId, kuriPayload);
 
         Alert.alert('Success!', 'Kuri updated successfully', [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
+          { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } else {
-        // Create new Kuri
-        const response = await kuriService.createKuri(kuriPayload);
-        console.log(response.data.status);
+        // Collect memberIds of existing (registered) users to pass directly
+        const existingMemberIds = members
+          .filter(m => m.type === 'existing' && m.id)
+          .map(m => m.id!);
+        if (existingMemberIds.length > 0) {
+          kuriPayload.memberIds = existingMemberIds;
+        }
 
+        const response = await kuriService.createKuri(kuriPayload);
 
         if (response.status === 201) {
-          // Add members if any
-          if (members.length > 0) {
-            for (const member of members) {
-              try {
-                await kuriService.addMember(response.data.id, {
-                  type: member.type,
-                  userId: member.id,
-                  name: member.name
-                });
-              } catch (err) {
-                console.error(`Failed to add member ${member.name}`, err);
-              }
+          // Add dummy (offline) members via separate endpoint
+          const dummyMembers = members.filter(m => m.type === 'dummy');
+          for (const member of dummyMembers) {
+            try {
+              await kuriService.addMember(response.data.id, {
+                type: 'dummy',
+                name: member.name,
+              });
+            } catch (err) {
+              console.error(`Failed to add dummy member ${member.name}`, err);
             }
           }
 
-          // Create local group object for immediate UI update
           const newGroup: Group = {
             adminId: response.data.adminId,
-            createdBy: response.data.adminId, // Assuming creator is admin
-            description: formData.description || formData.agreement,
+            createdBy: response.data.adminId,
+            description: formData.description,
             duration: `${formData.duration} Months`,
             id: response.data.id,
-            memberIds: [response.data.adminId, ...members.map(m => m.id || '')].filter(Boolean),
+            memberIds: [response.data.adminId, ...existingMemberIds],
             monthlyAmount: formData.monthlyAmount,
             name: formData.groupName,
             startDate: formData.startDate || new Date().toISOString().split('T')[0],
             status: response.data.status as 'active' | 'pending' | 'completed',
-            type: 'monthly', // Default type
+            type: 'monthly',
           };
           dispatch(addGroup(newGroup));
 
           Alert.alert(
-            '🎉 Success!',
-            `Your Kuri "${formData.groupName}" has been created successfully!\n\n` +
+            '🎉 Kuri Created!',
+            `"${formData.groupName}" has been created successfully!\n\n` +
             `💰 Monthly Amount: ₹${formData.monthlyAmount}\n` +
-            `📅 Duration: ${formData.duration} Months\n` +
-            `${joinAsMember ? '✅ You are joined as a member' : '👤 You are the admin only'}`,
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.goBack(),
-              },
-            ]
+            `📅 Duration: ${formData.duration} Months`,
+            [{ text: 'OK', onPress: () => navigation.goBack() }],
           );
         }
       }
@@ -301,20 +389,36 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
           </Text>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Toggle */}
-          <View>
-            <Card style={styles.toggleCard}>
-              <View style={styles.toggleContainer}>
-                <Text style={styles.toggleLabel}>New Kuri</Text>
-                <Switch value={isNewKuri} onValueChange={setIsNewKuri} />
-                <Text style={styles.toggleLabel}>Existing Kuri</Text>
-              </View>
-            </Card>
+        {/* Tabs */}
+        {!isEditMode && (
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[styles.tab, isNewKuri && styles.tabActive]}
+              onPress={() => setIsNewKuri(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, isNewKuri && styles.tabTextActive]}>
+                New Kuri
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, !isNewKuri && styles.tabActive]}
+              onPress={() => setIsNewKuri(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, !isNewKuri && styles.tabTextActive]}>
+                Existing Kuri
+              </Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          {/* Form */}
-          <View>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
+          {/* New Kuri Form */}
+          {(isNewKuri || isEditMode) && (
+          <>
+            <View>
             <Card style={styles.formCard}>
               <Text style={styles.cardTitle}>Group Details</Text>
 
@@ -352,15 +456,17 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
               />
 
               <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                <TextInput
-                  label="Start Date"
-                  value={formData.startDate}
-                  style={styles.input}
-                  mode="outlined"
-                  placeholder="YYYY-MM-DD"
-                  editable={false}
-                  right={<TextInput.Icon icon="calendar" />}
-                />
+                <View pointerEvents="none">
+                  <TextInput
+                    label="Start Date"
+                    value={formData.startDate}
+                    style={styles.input}
+                    mode="outlined"
+                    placeholder="YYYY-MM-DD"
+                    editable={false}
+                    right={<TextInput.Icon icon="calendar" />}
+                  />
+                </View>
               </TouchableOpacity>
               {showDatePicker && (
                 <DateTimePicker
@@ -385,10 +491,10 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
 
 
             </Card>
-          </View>
+            </View>
 
-          {/* Members */}
-          <View>
+            {/* Members */}
+            <View>
             <Card style={styles.membersCard}>
               <Text style={styles.cardTitle}>
                 {isEditMode ? 'Members' : 'Add Members'}
@@ -478,29 +584,157 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
                 </View>
               )}
             </Card>
-          </View>
+            </View>
+          </> )} {/* end isNewKuri || isEditMode */}
 
+          {/* Existing Kuri Tab */}
+          {!isNewKuri && !isEditMode && (
+            <>
+              <View>
+                <Card style={styles.formCard}>
+                  <Text style={styles.cardTitle}>Kuri Details</Text>
+                  <Text style={styles.sectionSubtitle}>
+                    Record an offline kuri that's already running and bring it into the app.
+                  </Text>
 
+                  <TextInput
+                    label="Group Name *"
+                    value={existingFormData.groupName}
+                    onChangeText={text => setExistingFormData({ ...existingFormData, groupName: text })}
+                    style={[styles.input, { marginTop: 12 }]}
+                    mode="outlined"
+                  />
+
+                  <TextInput
+                    label="Monthly Amount (₹) *"
+                    value={existingFormData.monthlyAmount}
+                    onChangeText={text => setExistingFormData({ ...existingFormData, monthlyAmount: text })}
+                    style={styles.input}
+                    mode="outlined"
+                    keyboardType="numeric"
+                  />
+
+                  <TextInput
+                    label="Duration (Months) *"
+                    value={existingFormData.duration}
+                    onChangeText={text => setExistingFormData({ ...existingFormData, duration: text })}
+                    style={styles.input}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    placeholder="e.g. 12"
+                  />
+
+                  <TouchableOpacity onPress={() => setShowExistingDatePicker(true)}>
+                    <View pointerEvents="none">
+                      <TextInput
+                        label="Start Date"
+                        value={existingFormData.startDate}
+                        style={styles.input}
+                        mode="outlined"
+                        placeholder="YYYY-MM-DD"
+                        editable={false}
+                        right={<TextInput.Icon icon="calendar" />}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  {showExistingDatePicker && (
+                    <DateTimePicker
+                      value={existingFormData.startDate ? new Date(existingFormData.startDate) : new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={onExistingDateChange}
+                    />
+                  )}
+
+                  <TouchableOpacity onPress={() => setShowKuriTakenDatePicker(true)}>
+                    <View pointerEvents="none">
+                      <TextInput
+                        label="Kuri Taken Date (Optional)"
+                        value={existingFormData.kuriTakenDate}
+                        style={styles.input}
+                        mode="outlined"
+                        placeholder="Date amount was taken"
+                        editable={false}
+                        right={<TextInput.Icon icon="calendar" />}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  {showKuriTakenDatePicker && (
+                    <DateTimePicker
+                      value={existingFormData.kuriTakenDate ? new Date(existingFormData.kuriTakenDate) : new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowKuriTakenDatePicker(false);
+                        if (selectedDate) {
+                          setExistingFormData({
+                            ...existingFormData,
+                            kuriTakenDate: selectedDate.toISOString().split('T')[0],
+                          });
+                        }
+                      }}
+                    />
+                  )}
+
+                  <TextInput
+                    label="Description (Optional)"
+                    value={existingFormData.description}
+                    onChangeText={text => setExistingFormData({ ...existingFormData, description: text })}
+                    style={styles.input}
+                    mode="outlined"
+                    multiline
+                    numberOfLines={3}
+                  />
+                </Card>
+              </View>
+
+              <View>
+                <Card style={styles.membersCard}>
+                  <Text style={styles.cardTitle}>Add Members</Text>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setShowExistingAddMemberModal(true)}
+                    style={styles.addMemberButton}
+                    icon="account-plus"
+                  >
+                    Add Members
+                  </Button>
+                  <View style={styles.membersContainer}>
+                    {existingMembers.map((member, index) => (
+                      <Chip
+                        key={`ex-member-${index}-${member.name}`}
+                        onClose={() => setExistingMembers(existingMembers.filter((_, i) => i !== index))}
+                        style={styles.memberChip}
+                        avatar={member.type === 'existing' ? <Text>👤</Text> : undefined}
+                      >
+                        {member.name}{member.type === 'existing' && member.uniqueCode ? ` (${member.uniqueCode})` : ''}
+                      </Chip>
+                    ))}
+                  </View>
+                </Card>
+              </View>
+            </>
+          )}
 
           {/* Submit Button */}
           <View>
             <Button
               mode="contained"
-              onPress={handleSubmit}
+              onPress={isNewKuri || isEditMode ? handleSubmit : handleSubmitExisting}
               style={styles.submitButton}
               contentStyle={styles.submitButtonContent}
               loading={loading}
               disabled={loading}
             >
               {loading
-                ? (isEditMode ? 'Updating...' : 'Creating...')
-                : (isEditMode ? 'Update Kuri' : 'Create Kuri')
+                ? (isEditMode ? 'Updating...' : isNewKuri ? 'Creating...' : 'Saving...')
+                : (isEditMode ? 'Update Kuri' : isNewKuri ? 'Create Kuri' : 'Save Existing Kuri')
               }
             </Button>
           </View>
         </ScrollView>
 
-        {/* Add Member Modal */}
+        {/* Add Member Modal - New Kuri */}
         <AddMemberModal
           visible={showAddMemberModal}
           onClose={() => setShowAddMemberModal(false)}
@@ -508,6 +742,32 @@ export const CreateKuriScreen: React.FC<CreateKuriScreenProps> = ({
           existingMemberIds={[
             ...(user?.id ? [user.id] : []),
             ...members.filter(m => m.id).map(m => m.id!)
+          ]}
+        />
+
+        {/* Add Member Modal - Existing Kuri */}
+        <AddMemberModal
+          visible={showExistingAddMemberModal}
+          onClose={() => setShowExistingAddMemberModal(false)}
+          onAddMember={async (type, data) => {
+            if (type === 'existing' && data.userIds) {
+              const newMembers: MemberItem[] = data.userIds.map(id => ({
+                name: id,
+                id,
+                type: 'existing',
+              }));
+              setExistingMembers([...existingMembers, ...newMembers]);
+            } else if (type === 'new' && data.names) {
+              const newMembers: MemberItem[] = data.names.map(name => ({
+                name,
+                type: 'dummy',
+              }));
+              setExistingMembers([...existingMembers, ...newMembers]);
+            }
+          }}
+          existingMemberIds={[
+            ...(user?.id ? [user.id] : []),
+            ...existingMembers.filter(m => m.id).map(m => m.id!)
           ]}
         />
       </View>
@@ -550,21 +810,36 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
   },
-  toggleCard: {
-    marginBottom: 24,
-    padding: 20,
-  },
-  toggleContainer: {
+  tabBar: {
     flexDirection: 'row',
+    marginHorizontal: 24,
+    marginBottom: 20,
+    backgroundColor: '#E8EAF6',
+    borderRadius: 12,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
   },
-  toggleLabel: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    fontWeight: '500',
-    color: '#1a1a1a',
+  tabActive: {
+    backgroundColor: '#2196F3',
+    shadowColor: '#2196F3',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
   },
   formCard: {
     marginBottom: 24,
@@ -724,13 +999,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 16,
-  },
-  agreementCard: {
-    marginBottom: 24,
-    padding: 20,
-  },
-  agreementInput: {
-    backgroundColor: '#ffffff',
   },
   submitButton: {
     marginBottom: 60,

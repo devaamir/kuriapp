@@ -15,6 +15,7 @@ export interface RegisterRequest {
 export interface AuthResponse {
   success: boolean;
   token: string;
+  refreshToken?: string;
   user: {
     id: string;
     name: string;
@@ -30,11 +31,16 @@ export interface AuthResponse {
 export const authService = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await api.post('/auth/login', credentials);
-    const { token, user } = response.data;
+    console.log(response);
+
+    const { token, refreshToken, user } = response.data;
 
     if (token) {
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(user));
+    }
+    if (refreshToken) {
+      await AsyncStorage.setItem('refreshToken', refreshToken);
     }
 
     return response.data;
@@ -42,19 +48,30 @@ export const authService = {
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
     const response = await api.post('/auth/register', userData);
-    const { token, user } = response.data;
+    const { token, refreshToken, user } = response.data;
 
     if (token) {
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(user));
+    }
+    if (refreshToken) {
+      await AsyncStorage.setItem('refreshToken', refreshToken);
     }
 
     return response.data;
   },
 
   async logout(): Promise<void> {
-    await AsyncStorage.removeItem('authToken');
-    await AsyncStorage.removeItem('userData');
+    try {
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      if (refreshToken) {
+        await api.post('/auth/logout', { refreshToken });
+      }
+    } catch {
+      // proceed with local logout even if the server call fails
+    } finally {
+      await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'userData']);
+    }
   },
 
   async getStoredToken(): Promise<string | null> {
@@ -78,9 +95,12 @@ export const authService = {
       await AsyncStorage.setItem('userData', JSON.stringify(user));
       return user;
     } catch (error) {
-      console.error('Failed to get user data from API, using stored data:', error);
+      console.error(
+        'Failed to get user data from API, using stored data:',
+        error,
+      );
       // Fallback to stored user data
       return await this.getStoredUser();
     }
-  }
+  },
 };

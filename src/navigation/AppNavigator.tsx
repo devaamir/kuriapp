@@ -134,7 +134,7 @@ const TabNavigator = () => (
   </Tab.Navigator>
 );
 
-export const AppNavigator = () => {
+export const AppNavigator = ({ theme }: { theme?: any }) => {
   const [initializing, setInitializing] = useState(true);
   const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state: RootState) => state.app);
@@ -172,7 +172,7 @@ export const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={theme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
