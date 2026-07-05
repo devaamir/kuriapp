@@ -10,8 +10,8 @@ import { store, clearUser } from '../store';
 //   default: 'http://localhost:3001/api/v1',
 // });
 
-// const BASE_URL = 'https://kuriapp-backend-admin.onrender.com/api/v1'
-const BASE_URL = 'http://192.168.2.1:3002/api/v1';
+const BASE_URL = 'https://kuriapp-backend-admin.onrender.com/api/v1';
+// const BASE_URL = 'http://192.168.2.1:3002/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,
